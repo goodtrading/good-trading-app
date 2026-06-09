@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "cross-env EXPO_PUBLIC_DOMAIN=terminalv1-production.up.railway.app pnpm exec expo start --localhost",
     "build": "node scripts/build.js",
+    "start": "node server/serve.js",
     "serve": "node server/serve.js",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
