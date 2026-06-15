@@ -490,7 +490,7 @@ export default function HomeScreen() {
             GOOD<Text style={{ color: colors.primary }}>TRADING</Text>
           </Text>
           <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-            INSTITUTIONAL INTEL
+            INSTITUTIONAL DATA
           </Text>
         </View>
         {isPending && (
