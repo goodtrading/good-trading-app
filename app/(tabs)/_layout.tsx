@@ -133,9 +133,9 @@ function ClassicTabLayout() {
           title: "CUENTA",
           tabBarIcon: ({ color }) =>
             isIOS ? (
-              <SymbolView name="crown" tintColor={color} size={22} />
+              <SymbolView name="person" tintColor={color} size={22} />
             ) : (
-              <Feather name="star" size={20} color={color} />
+              <Feather name="user" size={20} color={color} />
             ),
         }}
       />
