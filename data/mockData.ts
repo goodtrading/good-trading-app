@@ -227,6 +227,12 @@ export interface PortfolioSummary {
   positions: Position[];
 }
 
+export const mockPrices = {
+  BTC: 95000,
+  ETH: 3400,
+  USDT: 1,
+};
+
 export const portfolioSummary: PortfolioSummary = {
   totalValueUSD: 85180.4,
   todayPnl: 1243.5,

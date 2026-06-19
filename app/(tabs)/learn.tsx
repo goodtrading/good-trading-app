@@ -1,9 +1,20 @@
-import React from "react";
-import { ScrollView, View, Text, StyleSheet, Platform } from "react-native";
+import React, { useState } from "react";
+import {
+  ScrollView,
+  View,
+  Text,
+  StyleSheet,
+  Platform,
+  Pressable,
+} from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
-import { portfolioSummary, type Position } from "@/data/mockData";
+import { portfolioSummary, mockPrices, type Position } from "@/data/mockData";
+
+type Currency = "USD" | "BTC" | "ETH" | "USDT";
+
+const CURRENCY_OPTIONS: Currency[] = ["USD", "BTC", "ETH", "USDT"];
 
 const GROUP_LABELS: Record<Position["type"], string> = {
   spot: "SPOT",
@@ -13,11 +24,45 @@ const GROUP_LABELS: Record<Position["type"], string> = {
 
 const GROUP_ORDER: Position["type"][] = ["spot", "futures", "usdt"];
 
+const maskValue = (text: string, hidden: boolean) => (hidden ? "••••••" : text);
+
 const formatUsd = (value: number, decimals = 2) =>
   `$${value.toLocaleString("en-US", {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
   })}`;
+
+const convertFromUsd = (usdValue: number, currency: Currency) => {
+  if (currency === "USD") return usdValue;
+  return usdValue / mockPrices[currency];
+};
+
+const formatCurrencyAmount = (usdValue: number, currency: Currency) => {
+  const converted = convertFromUsd(usdValue, currency);
+
+  if (currency === "USD") {
+    return formatUsd(converted);
+  }
+
+  if (currency === "USDT") {
+    return `${converted.toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })} USDT`;
+  }
+
+  if (currency === "BTC") {
+    return `${converted.toLocaleString("en-US", {
+      minimumFractionDigits: 4,
+      maximumFractionDigits: 6,
+    })} BTC`;
+  }
+
+  return `${converted.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 4,
+  })} ETH`;
+};
 
 const formatQuantity = (position: Position) => {
   if (position.type === "usdt") {
@@ -34,12 +79,24 @@ const formatPnl = (value: number) => {
   return `${sign}${formatUsd(Math.abs(value))}`;
 };
 
+const formatPnlInCurrency = (usdValue: number, currency: Currency) => {
+  const sign = usdValue > 0 ? "+" : usdValue < 0 ? "-" : "";
+  const absFormatted = formatCurrencyAmount(Math.abs(usdValue), currency);
+  return `${sign}${absFormatted}`;
+};
+
 const formatPnlPercent = (value: number) => {
   const sign = value > 0 ? "+" : value < 0 ? "-" : "";
   return `${sign}${Math.abs(value).toFixed(2)}%`;
 };
 
-function PositionRow({ position }: { position: Position }) {
+function PositionRow({
+  position,
+  balancesHidden,
+}: {
+  position: Position;
+  balancesHidden: boolean;
+}) {
   const colors = useColors();
   const isPositive = position.pnl > 0;
   const isNegative = position.pnl < 0;
@@ -56,7 +113,7 @@ function PositionRow({ position }: { position: Position }) {
         <View style={styles.valueSection}>
           <Text style={[styles.valueLabel, { color: colors.mutedForeground }]}>VALOR</Text>
           <Text style={[styles.valueAmount, { color: colors.foreground }]}>
-            {formatUsd(position.valueUSD)}
+            {maskValue(formatUsd(position.valueUSD), balancesHidden)}
           </Text>
         </View>
       </View>
@@ -65,23 +122,25 @@ function PositionRow({ position }: { position: Position }) {
         <View style={styles.quantitySection}>
           <Text style={[styles.metaLabel, { color: colors.mutedForeground }]}>CANTIDAD</Text>
           <Text style={[styles.metaValue, { color: colors.secondaryForeground }]}>
-            {formatQuantity(position)}
+            {maskValue(formatQuantity(position), balancesHidden)}
           </Text>
         </View>
 
         <View style={styles.pnlSection}>
           <Text style={[styles.metaLabel, { color: colors.mutedForeground }]}>PnL</Text>
           <View style={styles.pnlRow}>
-            {position.pnl !== 0 && (
+            {!balancesHidden && position.pnl !== 0 && (
               <Feather
                 name={isPositive ? "arrow-up-right" : "arrow-down-right"}
                 size={11}
                 color={pnlColor}
               />
             )}
-            <Text style={[styles.pnlValue, { color: pnlColor }]}>{formatPnl(position.pnl)}</Text>
+            <Text style={[styles.pnlValue, { color: pnlColor }]}>
+              {maskValue(formatPnl(position.pnl), balancesHidden)}
+            </Text>
             <Text style={[styles.pnlPercent, { color: pnlColor }]}>
-              ({formatPnlPercent(position.pnlPercent)})
+              ({maskValue(formatPnlPercent(position.pnlPercent), balancesHidden)})
             </Text>
           </View>
         </View>
@@ -94,6 +153,10 @@ export default function LearnScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { totalValueUSD, todayPnl, todayPnlPercent, positions } = portfolioSummary;
+
+  const [selectedCurrency, setSelectedCurrency] = useState<Currency>("USD");
+  const [balancesHidden, setBalancesHidden] = useState(false);
+  const [currencyMenuOpen, setCurrencyMenuOpen] = useState(false);
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 + 84 : insets.bottom + 84;
@@ -112,6 +175,14 @@ export default function LearnScreen() {
     items: positions.filter((position) => position.type === type),
   })).filter((group) => group.items.length > 0);
 
+  const convertedTotal = formatCurrencyAmount(totalValueUSD, selectedCurrency);
+  const convertedTodayPnl = formatPnlInCurrency(todayPnl, selectedCurrency);
+
+  const handleSelectCurrency = (currency: Currency) => {
+    setSelectedCurrency(currency);
+    setCurrencyMenuOpen(false);
+  };
+
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: colors.background }]}
@@ -123,29 +194,111 @@ export default function LearnScreen() {
       showsVerticalScrollIndicator={false}
     >
       <View style={[styles.summaryCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>
-          VALOR TOTAL ESTIMADO
-        </Text>
-        <Text style={[styles.summaryValue, { color: colors.foreground }]}>
-          {formatUsd(totalValueUSD, 2)}
-        </Text>
+        <View style={styles.headerTopRow}>
+          <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>
+            VALOR TOTAL EST.
+          </Text>
+          <Pressable
+            onPress={() => setBalancesHidden((prev) => !prev)}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={balancesHidden ? "Mostrar balances" : "Ocultar balances"}
+          >
+            <Feather
+              name={balancesHidden ? "eye-off" : "eye"}
+              size={18}
+              color={colors.mutedForeground}
+            />
+          </Pressable>
+        </View>
+
+        <View style={styles.currencyRow}>
+          <Text style={[styles.summaryValue, { color: colors.foreground }]}>
+            {maskValue(convertedTotal, balancesHidden)}
+          </Text>
+
+          <View style={styles.currencySelectorWrap}>
+            <Pressable
+              onPress={() => setCurrencyMenuOpen((prev) => !prev)}
+              style={[styles.currencySelector, { borderColor: colors.border, backgroundColor: colors.secondary }]}
+              accessibilityRole="button"
+              accessibilityLabel="Seleccionar moneda"
+            >
+              <Text style={[styles.currencySelectorText, { color: colors.foreground }]}>
+                {selectedCurrency}
+              </Text>
+              <Feather
+                name={currencyMenuOpen ? "chevron-up" : "chevron-down"}
+                size={14}
+                color={colors.mutedForeground}
+              />
+            </Pressable>
+
+            {currencyMenuOpen && (
+              <View style={[styles.currencyMenu, { backgroundColor: colors.card, borderColor: colors.border }]}>
+                {CURRENCY_OPTIONS.map((currency) => (
+                  <Pressable
+                    key={currency}
+                    onPress={() => handleSelectCurrency(currency)}
+                    style={[
+                      styles.currencyOption,
+                      selectedCurrency === currency && { backgroundColor: colors.secondary },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.currencyOptionText,
+                        {
+                          color:
+                            selectedCurrency === currency
+                              ? colors.foreground
+                              : colors.mutedForeground,
+                        },
+                      ]}
+                    >
+                      {currency}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            )}
+          </View>
+        </View>
+
+        {selectedCurrency !== "USD" && (
+          <Text style={[styles.usdEquivalent, { color: colors.mutedForeground }]}>
+            = {maskValue(formatUsd(totalValueUSD), balancesHidden)}
+          </Text>
+        )}
+
         <View style={[styles.todayRow, { borderTopColor: colors.border }]}>
-          <Text style={[styles.todayLabel, { color: colors.mutedForeground }]}>HOY</Text>
+          <Text style={[styles.todayLabel, { color: colors.mutedForeground }]}>PnL DE HOY</Text>
           <View style={styles.todayPnlRow}>
-            {todayPnl !== 0 && (
+            {!balancesHidden && todayPnl !== 0 && (
               <Feather
                 name={isTodayPositive ? "arrow-up-right" : "arrow-down-right"}
                 size={12}
                 color={todayColor}
               />
             )}
-            <Text style={[styles.todayPnl, { color: todayColor }]}>{formatPnl(todayPnl)}</Text>
+            <Text style={[styles.todayPnl, { color: todayColor }]}>
+              {maskValue(convertedTodayPnl, balancesHidden)}
+            </Text>
             <Text style={[styles.todayPnlPercent, { color: todayColor }]}>
-              ({formatPnlPercent(todayPnlPercent)})
+              ({maskValue(formatPnlPercent(todayPnlPercent), balancesHidden)})
             </Text>
           </View>
         </View>
       </View>
+
+      {currencyMenuOpen && (
+        <Pressable
+          style={styles.menuOverlay}
+          onPress={() => setCurrencyMenuOpen(false)}
+          accessibilityRole="button"
+          accessibilityLabel="Cerrar selector de moneda"
+        />
+      )}
 
       {groupedPositions.map((group) => (
         <View key={group.type} style={styles.groupSection}>
@@ -157,7 +310,11 @@ export default function LearnScreen() {
           </View>
 
           {group.items.map((position) => (
-            <PositionRow key={`${position.type}-${position.symbol}`} position={position} />
+            <PositionRow
+              key={`${position.type}-${position.symbol}`}
+              position={position}
+              balancesHidden={balancesHidden}
+            />
           ))}
         </View>
       ))}
@@ -174,17 +331,82 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: 16,
     marginBottom: 20,
+    zIndex: 2,
+  },
+  headerTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   summaryLabel: {
     fontSize: 9,
     fontFamily: "Inter_600SemiBold",
     letterSpacing: 1.2,
   },
+  currencyRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    marginTop: 8,
+    gap: 12,
+  },
   summaryValue: {
+    flex: 1,
     fontSize: 32,
     fontFamily: "Inter_700Bold",
     letterSpacing: 0.5,
-    marginTop: 8,
+  },
+  currencySelectorWrap: {
+    position: "relative",
+    zIndex: 10,
+  },
+  currencySelector: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  currencySelectorText: {
+    fontSize: 12,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 0.5,
+  },
+  currencyMenu: {
+    position: "absolute",
+    top: "100%",
+    right: 0,
+    marginTop: 4,
+    minWidth: 88,
+    borderWidth: 1,
+    borderRadius: 4,
+    overflow: "hidden",
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  currencyOption: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  currencyOptionText: {
+    fontSize: 12,
+    fontFamily: "Inter_600SemiBold",
+    letterSpacing: 0.5,
+  },
+  usdEquivalent: {
+    fontSize: 13,
+    fontFamily: "Inter_500Medium",
+    marginTop: 6,
+    letterSpacing: 0.2,
+  },
+  menuOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 1,
   },
   todayRow: {
     flexDirection: "row",
