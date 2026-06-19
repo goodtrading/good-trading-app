@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   ScrollView,
   View,
@@ -7,6 +7,7 @@ import {
   Image,
   Platform,
   ActivityIndicator,
+  Pressable,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useGetMarketState } from "@/lib/api-client";
@@ -214,9 +215,13 @@ const deriveFlipStates = (gammaFlip: unknown, dealerPivot: unknown) => {
   };
 };
 
+type MarketScope = "Macro" | "Micro";
+
 export default function HomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const [marketScope, setMarketScope] = useState<MarketScope>("Macro");
+  const [scopeMenuOpen, setScopeMenuOpen] = useState(false);
 
   const { data: market, isLoading, isError } = useGetMarketState({
     query: {
@@ -441,25 +446,22 @@ export default function HomeScreen() {
   }
 
   // Build zones array from levels with formatted prices
-  const globalFlip =
-    raw?.options?.gammaFlipGlobal ??
-    raw?.levels?.globalFlip ??
-    null;
-
-  const localFlip =
-    raw?.options?.gammaFlipLocal ??
-    raw?.levels?.localFlip ??
-    raw?.market?.gammaFlip ??
-    null;
   const callWall = raw?.levels?.callWall ?? null;
   const putWall = raw?.levels?.putWall ?? null;
 
   const zones = [
-    ...(globalFlip ? [{ label: "GLOBAL FLIP", price: formatUsdPrice(globalFlip), type: "neutral" as const, distance: "—" }] : []),
-    ...(localFlip ? [{ label: "LOCAL FLIP", price: formatUsdPrice(localFlip), type: "neutral" as const, distance: "—" }] : []),
-    ...(dealerPivot ? [{ label: "DEALER PIVOT", price: formatUsdPrice(dealerPivot), type: "neutral" as const, distance: "—" }] : []),
-    ...(callWall ? [{ label: "CALL WALL", price: formatUsdPrice(callWall), type: "resistance" as const, distance: "—" }] : []),
-    ...(putWall ? [{ label: "PUT WALL", price: formatUsdPrice(putWall), type: "support" as const, distance: "—" }] : []),
+    {
+      label: "CALL WALL",
+      price: callWall ? formatUsdPrice(callWall) : "—",
+      type: "resistance" as const,
+      distance: "—",
+    },
+    {
+      label: "PUT WALL",
+      price: putWall ? formatUsdPrice(putWall) : "—",
+      type: "support" as const,
+      distance: "—",
+    },
   ];
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
@@ -485,7 +487,7 @@ export default function HomeScreen() {
           style={styles.logo}
           resizeMode="contain"
         />
-        <View>
+        <View style={styles.topBarTitle}>
           <Text style={[styles.appName, { color: colors.foreground }]}>
             GOOD<Text style={{ color: colors.primary }}>TRADING</Text>
           </Text>
@@ -493,14 +495,66 @@ export default function HomeScreen() {
             INSTITUTIONAL DATA
           </Text>
         </View>
-        {isPending && (
-          <ActivityIndicator size="small" color={colors.primary} style={styles.loader} />
-        )}
-        {isError && (
-          <View style={[styles.offlinePill, { borderColor: colors.primary }]}>
-            <Text style={[styles.offlineText, { color: colors.primary }]}>SIN SEÑAL</Text>
+        <View style={styles.topBarRight}>
+          <View style={styles.scopeSelectorWrap}>
+            <Pressable
+              onPress={() => setScopeMenuOpen((open) => !open)}
+              style={[
+                styles.scopeButton,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+            >
+              <Text style={[styles.scopeButtonText, { color: colors.foreground }]}>
+                {marketScope}
+              </Text>
+              <Text style={[styles.scopeChevron, { color: colors.mutedForeground }]}>▼</Text>
+            </Pressable>
+            {scopeMenuOpen && (
+              <View
+                style={[
+                  styles.scopeMenu,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                ]}
+              >
+                {(["Macro", "Micro"] as const).map((option) => (
+                  <Pressable
+                    key={option}
+                    onPress={() => {
+                      setMarketScope(option);
+                      setScopeMenuOpen(false);
+                    }}
+                    style={[
+                      styles.scopeOption,
+                      option === marketScope && {
+                        backgroundColor: colors.secondary,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.scopeOptionText,
+                        {
+                          color:
+                            option === marketScope ? colors.foreground : colors.mutedForeground,
+                        },
+                      ]}
+                    >
+                      {option}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            )}
           </View>
-        )}
+          {isPending && (
+            <ActivityIndicator size="small" color={colors.primary} />
+          )}
+          {isError && (
+            <View style={[styles.offlinePill, { borderColor: colors.primary }]}>
+              <Text style={[styles.offlineText, { color: colors.primary }]}>SIN SEÑAL</Text>
+            </View>
+          )}
+        </View>
       </View>
 
       {/* ── Market State Bar ───────────────────────────────────── */}
@@ -537,6 +591,10 @@ export default function HomeScreen() {
           {/* ScenarioCard and DriversCard side by side */}
           <View style={styles.contextRow}>
             <View style={styles.contextColumn}>
+              <DriversCard drivers={drivers} />
+            </View>
+
+            <View style={styles.contextColumn}>
               <ScenarioCard
                 label={normalizedScenarioLabel}
                 title={scenarioText}
@@ -544,15 +602,11 @@ export default function HomeScreen() {
                 probability={probabilityRaw}
               />
             </View>
-
-            <View style={styles.contextColumn}>
-              <DriversCard drivers={drivers} />
-            </View>
           </View>
 
           {/* KeyZonesCard: zones from terminal push — empty if terminal hasn't sent them */}
           {zones.length > 0 ? (
-            <KeyZonesCard zones={zones} />
+            <KeyZonesCard zones={zones} selectedMode={marketScope} />
           ) : (
             <View style={[styles.emptyZones, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <Text style={[styles.emptyZonesText, { color: colors.mutedForeground }]}>
@@ -598,6 +652,58 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 12,
     marginBottom: 16,
+    zIndex: 10,
+  },
+  topBarTitle: {
+    flex: 1,
+  },
+  topBarRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  scopeSelectorWrap: {
+    position: "relative",
+    zIndex: 20,
+  },
+  scopeButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: 2,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  scopeButtonText: {
+    fontSize: 9,
+    fontFamily: "Inter_600SemiBold",
+    letterSpacing: 1,
+  },
+  scopeChevron: {
+    fontSize: 8,
+    fontFamily: "Inter_600SemiBold",
+  },
+  scopeMenu: {
+    position: "absolute",
+    top: "100%",
+    right: 0,
+    marginTop: 4,
+    minWidth: 88,
+    borderWidth: 1,
+    borderRadius: 4,
+    overflow: "hidden",
+    zIndex: 30,
+    elevation: 4,
+  },
+  scopeOption: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  scopeOptionText: {
+    fontSize: 9,
+    fontFamily: "Inter_600SemiBold",
+    letterSpacing: 1,
   },
   logo: {
     width: 32,
@@ -615,11 +721,7 @@ const styles = StyleSheet.create({
     letterSpacing: 2.5,
     marginTop: 1,
   },
-  loader: {
-    marginLeft: "auto",
-  },
   offlinePill: {
-    marginLeft: "auto",
     borderWidth: 1,
     paddingHorizontal: 8,
     paddingVertical: 3,

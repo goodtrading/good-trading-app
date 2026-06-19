@@ -37,8 +37,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     padding: 20,
     marginBottom: 12,
-    flex: 1,
-    height: "100%",
+    flex: 0,
+    height: "auto",
   },
   header: {
     flexDirection: "row",

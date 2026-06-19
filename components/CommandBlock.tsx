@@ -22,6 +22,12 @@ export function CommandBlock({
   confidence,
 }: CommandBlockProps) {
   const colors = useColors();
+  const gammaColor =
+    gamma === "SHORT GAMMA"
+      ? colors.destructive
+      : gamma === "LONG GAMMA"
+        ? colors.success
+        : colors.mutedForeground;
   const pulse = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
@@ -61,7 +67,7 @@ export function CommandBlock({
         <View style={[styles.arrow, { backgroundColor: "#1a0005" }]}>
           <Text style={[styles.arrowText, { color: colors.primary }]}>→</Text>
         </View>
-        <Text style={[styles.gammaLabel, { color: colors.primary }]}>{gamma}</Text>
+        <Text style={[styles.gammaLabel, { color: gammaColor }]}>{gamma}</Text>
       </View>
 
       <View style={[styles.divider, { backgroundColor: "#1a0005" }]} />

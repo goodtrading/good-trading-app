@@ -7,13 +7,15 @@ interface Zone {
   price: string;
   type: "resistance" | "support" | "current" | "neutral";
   distance: string;
+  barColor?: string;
 }
 
 interface KeyZonesCardProps {
   zones: Zone[];
+  selectedMode: "Macro" | "Micro";
 }
 
-export function KeyZonesCard({ zones }: KeyZonesCardProps) {
+export function KeyZonesCard({ zones, selectedMode }: KeyZonesCardProps) {
   const colors = useColors();
 
   const getZoneColor = (type: Zone["type"]) => {
@@ -23,6 +25,25 @@ export function KeyZonesCard({ zones }: KeyZonesCardProps) {
     return colors.gold;
   };
 
+  const modeFlipZone: Zone =
+    selectedMode === "Macro"
+      ? {
+          label: "GLOBAL FLIP",
+          price: "—",
+          type: "neutral",
+          distance: "—",
+          barColor: "#c4b4fd",
+        }
+      : {
+          label: "LOCAL FLIP",
+          price: "—",
+          type: "neutral",
+          distance: "—",
+          barColor: "#a9fbdd",
+        };
+
+  const displayZones = [...zones, modeFlipZone];
+
   return (
     <View style={[styles.container, { backgroundColor: colors.card, borderColor: colors.border }]}>
       <View style={styles.header}>
@@ -30,17 +51,22 @@ export function KeyZonesCard({ zones }: KeyZonesCardProps) {
         <Text style={[styles.headerSub, { color: colors.mutedForeground }]}>BTC/USD</Text>
       </View>
 
-      {zones.map((zone, index) => (
+      {displayZones.map((zone, index) => (
         <View
           key={zone.label}
           style={[
             styles.row,
             { borderBottomColor: colors.border },
             zone.type === "current" && { backgroundColor: "#1a1000" },
-            index === zones.length - 1 && { borderBottomWidth: 0 },
+            index === displayZones.length - 1 && { borderBottomWidth: 0 },
           ]}
         >
-          <View style={[styles.typeBar, { backgroundColor: getZoneColor(zone.type) }]} />
+          <View
+            style={[
+              styles.typeBar,
+              { backgroundColor: zone.barColor ?? getZoneColor(zone.type) },
+            ]}
+          />
 
           <View style={styles.rowContent}>
             <Text style={[styles.zoneLabel, { color: colors.mutedForeground }]}>{zone.label}</Text>

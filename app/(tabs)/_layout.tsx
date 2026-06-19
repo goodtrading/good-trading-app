@@ -11,25 +11,25 @@ import { useColors } from "@/hooks/useColors";
 function NativeTabLayout() {
   return (
     <NativeTabs>
-      <NativeTabs.Trigger name="index">
-        <Icon sf={{ default: "house", selected: "house.fill" }} />
-        <Label>Home</Label>
+      <NativeTabs.Trigger name="watchlist">
+        <Icon sf={{ default: "list.bullet", selected: "list.bullet" }} />
+        <Label>Watchlist</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="alerts">
         <Icon sf={{ default: "bell", selected: "bell.fill" }} />
         <Label>Alertas</Label>
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="watchlist">
-        <Icon sf={{ default: "list.bullet", selected: "list.bullet" }} />
-        <Label>Watchlist</Label>
+      <NativeTabs.Trigger name="index">
+        <Icon sf={{ default: "house", selected: "house.fill" }} />
+        <Label>Home</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="learn">
         <Icon sf={{ default: "book", selected: "book.fill" }} />
-        <Label>Learn</Label>
+        <Label>Cartera</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="profile">
         <Icon sf={{ default: "person", selected: "person.fill" }} />
-        <Label>Perfil</Label>
+        <Label>Cuenta</Label>
       </NativeTabs.Trigger>
     </NativeTabs>
   );
@@ -80,14 +80,14 @@ function ClassicTabLayout() {
       }}
     >
       <Tabs.Screen
-        name="index"
+        name="watchlist"
         options={{
-          title: "HOME",
+          title: "WATCHLIST",
           tabBarIcon: ({ color }) =>
             isIOS ? (
-              <SymbolView name="house" tintColor={color} size={22} />
+              <SymbolView name="list.bullet" tintColor={color} size={22} />
             ) : (
-              <Feather name="home" size={20} color={color} />
+              <Feather name="list" size={20} color={color} />
             ),
         }}
       />
@@ -104,21 +104,21 @@ function ClassicTabLayout() {
         }}
       />
       <Tabs.Screen
-        name="watchlist"
+        name="index"
         options={{
-          title: "WATCH",
+          title: "HOME",
           tabBarIcon: ({ color }) =>
             isIOS ? (
-              <SymbolView name="list.bullet" tintColor={color} size={22} />
+              <SymbolView name="house" tintColor={color} size={22} />
             ) : (
-              <Feather name="list" size={20} color={color} />
+              <Feather name="home" size={20} color={color} />
             ),
         }}
       />
       <Tabs.Screen
         name="learn"
         options={{
-          title: "LEARN",
+          title: "CARTERA",
           tabBarIcon: ({ color }) =>
             isIOS ? (
               <SymbolView name="book" tintColor={color} size={22} />
@@ -130,7 +130,7 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: "PRO",
+          title: "CUENTA",
           tabBarIcon: ({ color }) =>
             isIOS ? (
               <SymbolView name="crown" tintColor={color} size={22} />
