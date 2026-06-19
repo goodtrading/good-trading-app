@@ -207,3 +207,96 @@ export const learnCards = [
     level: "BÁSICO",
   },
 ];
+
+export interface Position {
+  symbol: string;
+  name: string;
+  type: "spot" | "futures" | "usdt";
+  quantity: number;
+  entryPrice: number;
+  currentPrice: number;
+  valueUSD: number;
+  pnl: number;
+  pnlPercent: number;
+}
+
+export interface PortfolioSummary {
+  totalValueUSD: number;
+  todayPnl: number;
+  todayPnlPercent: number;
+  positions: Position[];
+}
+
+export const portfolioSummary: PortfolioSummary = {
+  totalValueUSD: 85180.4,
+  todayPnl: 1243.5,
+  todayPnlPercent: 1.48,
+  positions: [
+    {
+      symbol: "BTC",
+      name: "Bitcoin",
+      type: "spot",
+      quantity: 0.45,
+      entryPrice: 78500,
+      currentPrice: 82200,
+      valueUSD: 36990,
+      pnl: 1665,
+      pnlPercent: 4.71,
+    },
+    {
+      symbol: "ETH",
+      name: "Ethereum",
+      type: "spot",
+      quantity: 5.2,
+      entryPrice: 1950,
+      currentPrice: 1842,
+      valueUSD: 9578.4,
+      pnl: -561.6,
+      pnlPercent: -5.54,
+    },
+    {
+      symbol: "SOL",
+      name: "Solana",
+      type: "spot",
+      quantity: 120,
+      entryPrice: 105,
+      currentPrice: 118.4,
+      valueUSD: 14208,
+      pnl: 1608,
+      pnlPercent: 12.76,
+    },
+    {
+      symbol: "BTC",
+      name: "Bitcoin Perp",
+      type: "futures",
+      quantity: 0.1,
+      entryPrice: 83000,
+      currentPrice: 82200,
+      valueUSD: 8220,
+      pnl: -80,
+      pnlPercent: -0.96,
+    },
+    {
+      symbol: "ETH",
+      name: "Ethereum Perp",
+      type: "futures",
+      quantity: 2,
+      entryPrice: 1780,
+      currentPrice: 1842,
+      valueUSD: 3684,
+      pnl: 124,
+      pnlPercent: 3.48,
+    },
+    {
+      symbol: "USDT",
+      name: "Tether",
+      type: "usdt",
+      quantity: 12500,
+      entryPrice: 1,
+      currentPrice: 1,
+      valueUSD: 12500,
+      pnl: 0,
+      pnlPercent: 0,
+    },
+  ],
+};
