@@ -196,24 +196,30 @@ export default function LearnScreen() {
       <View style={[styles.summaryCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
         <View style={styles.headerTopRow}>
           <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>
-            VALOR TOTAL EST.
+            Valor total est.
           </Text>
           <Pressable
             onPress={() => setBalancesHidden((prev) => !prev)}
             hitSlop={8}
+            style={styles.eyeButton}
             accessibilityRole="button"
             accessibilityLabel={balancesHidden ? "Mostrar balances" : "Ocultar balances"}
           >
             <Feather
               name={balancesHidden ? "eye-off" : "eye"}
-              size={18}
+              size={12}
               color={colors.mutedForeground}
             />
           </Pressable>
         </View>
 
-        <View style={styles.currencyRow}>
-          <Text style={[styles.summaryValue, { color: colors.foreground }]}>
+        <View style={styles.valueRow}>
+          <Text
+            style={[styles.summaryValue, { color: colors.foreground }]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.75}
+          >
             {maskValue(convertedTotal, balancesHidden)}
           </Text>
 
@@ -229,7 +235,7 @@ export default function LearnScreen() {
               </Text>
               <Feather
                 name={currencyMenuOpen ? "chevron-up" : "chevron-down"}
-                size={14}
+                size={12}
                 color={colors.mutedForeground}
               />
             </Pressable>
@@ -271,20 +277,30 @@ export default function LearnScreen() {
           </Text>
         )}
 
-        <View style={[styles.todayRow, { borderTopColor: colors.border }]}>
-          <Text style={[styles.todayLabel, { color: colors.mutedForeground }]}>PnL DE HOY</Text>
-          <View style={styles.todayPnlRow}>
+        <View style={styles.summaryPnlRow}>
+          <Text
+            style={[
+              styles.summaryPnlLabel,
+              {
+                color: colors.mutedForeground,
+                borderBottomColor: colors.mutedForeground,
+              },
+            ]}
+          >
+            PnL de hoy
+          </Text>
+          <View style={styles.summaryPnlValues}>
             {!balancesHidden && todayPnl !== 0 && (
               <Feather
                 name={isTodayPositive ? "arrow-up-right" : "arrow-down-right"}
-                size={12}
+                size={9}
                 color={todayColor}
               />
             )}
-            <Text style={[styles.todayPnl, { color: todayColor }]}>
+            <Text style={[styles.summaryPnlAmount, { color: todayColor }]}>
               {maskValue(convertedTodayPnl, balancesHidden)}
             </Text>
-            <Text style={[styles.todayPnlPercent, { color: todayColor }]}>
+            <Text style={[styles.summaryPnlPercent, { color: todayColor }]}>
               ({maskValue(formatPnlPercent(todayPnlPercent), balancesHidden)})
             </Text>
           </View>
@@ -329,32 +345,39 @@ const styles = StyleSheet.create({
   summaryCard: {
     borderRadius: 4,
     borderWidth: 1,
-    padding: 16,
-    marginBottom: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 16,
     zIndex: 2,
   },
   headerTopRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    gap: 7,
+    marginBottom: 7,
+  },
+  eyeButton: {
+    marginTop: 1,
   },
   summaryLabel: {
-    fontSize: 9,
-    fontFamily: "Inter_600SemiBold",
-    letterSpacing: 1.2,
+    fontSize: 11,
+    fontFamily: "Inter_500Medium",
+    letterSpacing: 0.2,
   },
-  currencyRow: {
+  valueRow: {
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "center",
     justifyContent: "space-between",
-    marginTop: 8,
-    gap: 12,
+    gap: 10,
+    marginTop: 1,
   },
   summaryValue: {
     flex: 1,
-    fontSize: 32,
+    flexShrink: 1,
+    fontSize: 34,
     fontFamily: "Inter_700Bold",
-    letterSpacing: 0.5,
+    letterSpacing: -0.5,
+    lineHeight: 40,
   },
   currencySelectorWrap: {
     position: "relative",
@@ -363,16 +386,17 @@ const styles = StyleSheet.create({
   currencySelector: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: 4,
     borderWidth: 1,
     borderRadius: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    flexShrink: 0,
   },
   currencySelectorText: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: "Inter_700Bold",
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
   },
   currencyMenu: {
     position: "absolute",
@@ -399,40 +423,51 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   usdEquivalent: {
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: "Inter_500Medium",
-    marginTop: 6,
+    marginTop: 2,
     letterSpacing: 0.2,
   },
   menuOverlay: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 1,
   },
-  todayRow: {
+  summaryPnlRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 6,
   },
-  todayLabel: {
-    fontSize: 9,
-    fontFamily: "Inter_600SemiBold",
-    letterSpacing: 1,
+  summaryPnlLabel: {
+    fontSize: 11,
+    fontFamily: "Inter_500Medium",
+    letterSpacing: 0.2,
+    ...Platform.select({
+      web: {
+        textDecorationLine: "underline",
+        textDecorationStyle: "dotted",
+      },
+      default: {
+        borderBottomWidth: 1,
+        borderStyle: "dotted",
+        paddingBottom: 1,
+      },
+    }),
   },
-  todayPnlRow: {
+  summaryPnlValues: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: 3,
+    flexShrink: 1,
   },
-  todayPnl: {
-    fontSize: 13,
-    fontFamily: "Inter_700Bold",
-  },
-  todayPnlPercent: {
-    fontSize: 12,
+  summaryPnlAmount: {
+    fontSize: 11,
     fontFamily: "Inter_600SemiBold",
+  },
+  summaryPnlPercent: {
+    fontSize: 11,
+    fontFamily: "Inter_500Medium",
   },
   groupSection: {
     marginBottom: 18,
