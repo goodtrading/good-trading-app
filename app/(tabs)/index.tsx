@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ScrollView,
   View,
@@ -10,8 +10,19 @@ import {
   Pressable,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useGetMarketState } from "@/lib/api-client";
+import { useMarketStateWithFallback } from "@/hooks/useMarketStateWithFallback";
+import { useStableKeyZones } from "@/hooks/useStableKeyZones";
+import { useActiveAsset } from "@/lib/assets";
+import { formatValuedField } from "@/lib/market-state/dataStatusUi";
+import {
+  mapGammaCardFromMacro,
+  mapGammaCardFromMicro,
+} from "@/lib/market-state/v2UiMappers";
+import { MOBILE_STATE_V2_ENABLED } from "@/lib/feature-flags";
+import { resolveHeaderRegimeFromV2 } from "@/lib/market-state/headerRegimeView";
+import { readMicroTransitionZone } from "@/lib/market-state/transitionZoneView";
 import { useColors } from "@/hooks/useColors";
+import { editorial } from "@/constants/editorial";
 import { CommandBlock } from "@/components/CommandBlock";
 import { ScenarioCard } from "@/components/ScenarioCard";
 import { KeyZonesCard } from "@/components/KeyZonesCard";
@@ -220,20 +231,28 @@ type MarketScope = "Macro" | "Micro";
 export default function HomeScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const [marketScope, setMarketScope] = useState<MarketScope>("Macro");
+  const [marketScope, setMarketScope] = useState<MarketScope>("Micro");
   const [scopeMenuOpen, setScopeMenuOpen] = useState(false);
 
-  const { data: market, isLoading, isError } = useGetMarketState({
-    query: {
-      queryKey: ["market-state"],
-      refetchInterval: 7_000,
-      staleTime: 5_000,
-    },
-  });
+  const { activeAsset } = useActiveAsset();
+
+  const { source: marketStateSource, v2: marketStateV2, legacy: legacyMarketQuery } =
+    useMarketStateWithFallback(activeAsset);
+  const { data: market, isLoading, isError: legacyIsError } = legacyMarketQuery;
+  const isV2MarketState = marketStateSource === "v2" && MOBILE_STATE_V2_ENABLED;
+  const showConnectionError =
+    legacyIsError && !isV2MarketState && !marketStateV2.data && !marketStateV2.isLoading;
 
   // Map real API response structure to UI fields
   const raw = market as any; // this is now the unwrapped data.data object
-  const btcPrice = raw?.market?.spot;
+  const legacyBtcPrice = raw?.market?.spot;
+  const v2BtcPrice =
+    isV2MarketState && marketStateV2.spot
+      ? formatValuedField(marketStateV2.spot.status, marketStateV2.spot.value, (value) =>
+          String(value),
+        )
+      : null;
+  const btcPrice = v2BtcPrice ?? legacyBtcPrice;
   const biasRaw = raw?.bias?.type ?? "NEUTRAL";
   const bias = biasRaw.replace(/_/g, " "); // Replace underscores with spaces
   const gammaRaw = raw?.market?.gammaRegime ?? "NEUTRAL";
@@ -449,26 +468,104 @@ export default function HomeScreen() {
   const callWall = raw?.levels?.callWall ?? null;
   const putWall = raw?.levels?.putWall ?? null;
 
-  const zones = [
-    {
-      label: "CALL WALL",
-      price: callWall ? formatUsdPrice(callWall) : "—",
-      type: "resistance" as const,
-      distance: "—",
-    },
-    {
-      label: "PUT WALL",
-      price: putWall ? formatUsdPrice(putWall) : "—",
-      type: "support" as const,
-      distance: "—",
-    },
-  ];
+  const legacyZones = useMemo(
+    () => [
+      {
+        id: "call-wall",
+        groupType: "single" as const,
+        label: "CALL WALL",
+        price: callWall ? formatUsdPrice(callWall) : "—",
+        type: "resistance" as const,
+        distance: "—",
+        moreCount: 0,
+      },
+      {
+        id: "put-wall",
+        groupType: "single" as const,
+        label: "PUT WALL",
+        price: putWall ? formatUsdPrice(putWall) : "—",
+        type: "support" as const,
+        distance: "—",
+        moreCount: 0,
+      },
+    ],
+    [callWall, putWall],
+  );
+
+  const v2SpotValue = marketStateV2.spot?.value ?? null;
+  const gammaV2Active = Boolean(isV2MarketState && marketStateV2.micro && marketStateV2.macro);
+  const headerRegime = useMemo(
+    () =>
+      resolveHeaderRegimeFromV2({
+        scope: marketScope,
+        micro: marketStateV2.micro,
+        macro: marketStateV2.macro,
+        fallbackLabel: gammaLabel,
+        useV2Regime: gammaV2Active,
+      }),
+    [gammaLabel, gammaV2Active, marketScope, marketStateV2.macro, marketStateV2.micro],
+  );
+
+  useEffect(() => {
+    if (MOBILE_STATE_V2_ENABLED) {
+      marketStateV2.setSelectedMode("micro");
+    }
+  }, [marketStateV2.setSelectedMode]);
+
+  const microTransitionZone =
+    marketScope === "Micro" && gammaV2Active
+      ? readMicroTransitionZone(marketStateV2.micro)
+      : null;
+
+  useEffect(() => {
+    if (!__DEV__) return;
+    console.log("[HEADER REGIME]", {
+      scope: marketScope,
+      microRegime: headerRegime.microRegime,
+      macroRegime: headerRegime.macroRegime,
+      displayedRegime: headerRegime.displayedRegime,
+    });
+  }, [headerRegime, marketScope]);
+
+  const shouldUseV2KeyZones = gammaV2Active;
+  const { zones } = useStableKeyZones({
+    enabled: shouldUseV2KeyZones,
+    mode: marketScope,
+    micro: marketStateV2.micro,
+    macro: marketStateV2.macro,
+    spot: v2SpotValue,
+    fallbackZones: legacyZones,
+  });
+
+  const legacyGammaCardProps = {
+    state: gammaLabel,
+    level: gammaLevel,
+    netGamma,
+    flipPoint,
+    description: "",
+    dominantExpiry,
+  };
+
+  const v2GammaCardProps = gammaV2Active
+      ? marketScope === "Micro"
+        ? mapGammaCardFromMicro(marketStateV2.micro!, marketStateV2.relationship)
+        : mapGammaCardFromMacro(marketStateV2.macro!, marketStateV2.relationship)
+      : null;
+
+  const gammaCardProps = v2GammaCardProps ?? legacyGammaCardProps;
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 + 84 : insets.bottom + 84;
+  const hasMarketSnapshot =
+    Boolean(marketStateV2.data) || Boolean(market);
 
-  // True while waiting for the very first response
-  const isPending = isLoading && !market;
+  // Only block UI on the true first load — never during background polling refresh.
+  const isPending =
+    !hasMarketSnapshot &&
+    ((isV2MarketState && marketStateV2.isLoading) ||
+      (!isV2MarketState && isLoading));
+
+  const hasRenderableData = hasMarketSnapshot;
 
   return (
     <ScrollView
@@ -499,10 +596,7 @@ export default function HomeScreen() {
           <View style={styles.scopeSelectorWrap}>
             <Pressable
               onPress={() => setScopeMenuOpen((open) => !open)}
-              style={[
-                styles.scopeButton,
-                { backgroundColor: colors.card, borderColor: colors.border },
-              ]}
+              style={styles.scopeButton}
             >
               <Text style={[styles.scopeButtonText, { color: colors.foreground }]}>
                 {marketScope}
@@ -510,24 +604,20 @@ export default function HomeScreen() {
               <Text style={[styles.scopeChevron, { color: colors.mutedForeground }]}>▼</Text>
             </Pressable>
             {scopeMenuOpen && (
-              <View
-                style={[
-                  styles.scopeMenu,
-                  { backgroundColor: colors.card, borderColor: colors.border },
-                ]}
-              >
+              <View style={styles.scopeMenu}>
                 {(["Macro", "Micro"] as const).map((option) => (
                   <Pressable
                     key={option}
                     onPress={() => {
                       setMarketScope(option);
+                      if (isV2MarketState) {
+                        marketStateV2.setSelectedMode(option === "Macro" ? "macro" : "micro");
+                      }
                       setScopeMenuOpen(false);
                     }}
                     style={[
                       styles.scopeOption,
-                      option === marketScope && {
-                        backgroundColor: colors.secondary,
-                      },
+                      option === marketScope && styles.scopeOptionActive,
                     ]}
                   >
                     <Text
@@ -549,8 +639,8 @@ export default function HomeScreen() {
           {isPending && (
             <ActivityIndicator size="small" color={colors.primary} />
           )}
-          {isError && (
-            <View style={[styles.offlinePill, { borderColor: colors.primary }]}>
+          {showConnectionError && (
+            <View style={styles.offlinePill}>
               <Text style={[styles.offlineText, { color: colors.primary }]}>SIN SEÑAL</Text>
             </View>
           )}
@@ -562,7 +652,7 @@ export default function HomeScreen() {
 
       {/* ── Loading skeleton ───────────────────────────────────── */}
       {isPending && (
-        <View style={[styles.skeleton, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <View style={styles.skeleton}>
           <Text style={[styles.skeletonText, { color: colors.mutedForeground }]}>
             CONECTANDO CON TERMINAL…
           </Text>
@@ -570,12 +660,12 @@ export default function HomeScreen() {
       )}
 
       {/* ── Data layer — only renders when market has arrived ──── */}
-      {market && (
+      {hasRenderableData && (
         <>
           {/* CommandBlock: asset · gamma · setup · probability · lastUpdate */}
           <CommandBlock
             asset={formatUsdPrice(btcPrice) ?? "BTC"}
-            gamma={gammaLabel}
+            gamma={headerRegime.displayedRegime}
             setup={setup}
             probability={probabilityRaw}
             lastUpdate={new Date(lastUpdate).toLocaleString("es-ES", {
@@ -586,6 +676,8 @@ export default function HomeScreen() {
             }).toUpperCase() + " UTC"}
             marketMode={normalizedMarketMode}
             confidence={confidence}
+            transitionZone={microTransitionZone}
+            showTransitionInsteadOfSetup={marketScope === "Micro"}
           />
 
           {/* ScenarioCard and DriversCard side by side */}
@@ -604,37 +696,27 @@ export default function HomeScreen() {
             </View>
           </View>
 
-          {/* KeyZonesCard: zones from terminal push — empty if terminal hasn't sent them */}
-          {zones.length > 0 ? (
-            <KeyZonesCard zones={zones} selectedMode={marketScope} />
-          ) : (
-            <View style={[styles.emptyZones, { backgroundColor: colors.card, borderColor: colors.border }]}>
-              <Text style={[styles.emptyZonesText, { color: colors.mutedForeground }]}>
-                ZONAS CLAVE — SIN DATOS DEL TERMINAL
-              </Text>
-              <Text style={[styles.emptyZonesHint, { color: colors.mutedForeground }]}>
-                Incluí el campo `zones[]` en tu próximo push
-              </Text>
-            </View>
-          )}
+          {/* KeyZonesCard: zones from v2 or legacy */}
+          <KeyZonesCard zones={zones} selectedMode={marketScope} />
 
-          {/* CorePositioningGrid removed - unified into KeyZonesCard */}
-
-          {/* GammaCard: gamma · gammaLevel · netGamma · flipPoint · dominantExpiry */}
+          {/* GammaCard: gamma exposure from v2 or legacy */}
           <GammaCard
-            state={gammaLabel}
-            level={gammaLevel}
-            netGamma={netGamma}
-            flipPoint={flipPoint}
-            description=""
-            dominantExpiry={dominantExpiry}
+            state={gammaCardProps.state}
+            level={gammaCardProps.level}
+            netGamma={gammaCardProps.netGamma}
+            flipPoint={gammaCardProps.flipPoint}
+            description={gammaCardProps.description}
+            dominantExpiry={gammaCardProps.dominantExpiry}
+            hideNetGamma={v2GammaCardProps?.hideNetGamma ?? false}
+            netGammaStale={v2GammaCardProps?.netGammaStale ?? false}
+            flipPointStale={v2GammaCardProps?.flipPointStale ?? false}
           />
         </>
       )}
 
       {/* ── Error state (no market + error) ───────────────────── */}
-      {isError && !isPending && (
-        <View style={[styles.errorBlock, { backgroundColor: "#0d0000", borderColor: colors.primary }]}>
+      {showConnectionError && !isPending && (
+        <View style={styles.errorBlock}>
           <Text style={[styles.errorTitle, { color: colors.primary }]}>SIN CONEXIÓN</Text>
           <Text style={[styles.errorBody, { color: colors.mutedForeground }]}>
             No se pudo contactar al backend. La app reintenta cada 7 segundos.
@@ -670,9 +752,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    borderWidth: 1,
-    borderRadius: 2,
-    paddingHorizontal: 8,
+    paddingHorizontal: 4,
     paddingVertical: 4,
   },
   scopeButtonText: {
@@ -690,15 +770,15 @@ const styles = StyleSheet.create({
     right: 0,
     marginTop: 4,
     minWidth: 88,
-    borderWidth: 1,
-    borderRadius: 4,
-    overflow: "hidden",
+    paddingVertical: 4,
     zIndex: 30,
-    elevation: 4,
   },
   scopeOption: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
     paddingVertical: 8,
+  },
+  scopeOptionActive: {
+    opacity: 1,
   },
   scopeOptionText: {
     fontSize: 9,
@@ -722,10 +802,8 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   offlinePill: {
-    borderWidth: 1,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 2,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
   },
   offlineText: {
     fontSize: 8,
@@ -759,11 +837,9 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   skeleton: {
-    borderRadius: 4,
-    borderWidth: 1,
-    padding: 24,
-    marginBottom: 12,
-    alignItems: "center",
+    paddingVertical: editorial.blockGap,
+    marginBottom: editorial.blockGap,
+    alignItems: "flex-start",
   },
   skeletonText: {
     fontSize: 11,
@@ -789,11 +865,9 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_400Regular",
   },
   errorBlock: {
-    borderRadius: 4,
-    borderWidth: 1,
-    padding: 20,
-    alignItems: "center",
-    gap: 8,
+    paddingVertical: editorial.sectionGap,
+    alignItems: "flex-start",
+    gap: editorial.rowGap,
   },
   errorTitle: {
     fontSize: 14,

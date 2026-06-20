@@ -6,23 +6,27 @@ import {
   useFonts,
 } from "@expo-google-fonts/inter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Stack } from "expo-router";
+import { Stack, useRouter, useSegments, type Href } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
+import { ActivityIndicator, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { setBaseUrl } from "@/lib/api-client";
+import { getApiBaseUrl } from "@/lib/api/config";
+import { AuthProvider, useAuth } from "@/lib/auth";
+import { ActiveAssetProvider } from "@/lib/assets";
+import { PortfolioSourceProvider } from "@/lib/portfolio";
+import { WatchlistProvider } from "@/lib/watchlist";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
-// Point all API calls at the monorepo's shared backend.
-// EXPO_PUBLIC_DOMAIN is injected at build time for dev and production.
-if (process.env.EXPO_PUBLIC_DOMAIN) {
-  setBaseUrl(`https://${process.env.EXPO_PUBLIC_DOMAIN}`);
+const apiBaseUrl = getApiBaseUrl();
+if (apiBaseUrl) {
+  setBaseUrl(apiBaseUrl);
 }
 
-// Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient({
@@ -34,11 +38,52 @@ const queryClient = new QueryClient({
   },
 });
 
+function AuthGate({ children }: { children: React.ReactNode }) {
+  const { status } = useAuth();
+  const segments = useSegments();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (status === "loading") return;
+
+    const onLoginScreen = String(segments[0]) === "login";
+
+    if (status === "unauthenticated" && !onLoginScreen) {
+      router.replace("/login" as Href);
+      return;
+    }
+
+    if (status === "authenticated" && onLoginScreen) {
+      router.replace("/(tabs)" as Href);
+    }
+  }, [router, segments, status]);
+
+  if (status === "loading") {
+    return (
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
+
+  return <>{children}</>;
+}
+
 function RootLayoutNav() {
   return (
-    <Stack screenOptions={{ headerBackTitle: "Back" }}>
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-    </Stack>
+    <AuthGate>
+      <Stack screenOptions={{ headerBackTitle: "Back" }}>
+        <Stack.Screen name="login" options={{ headerShown: false }} />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="upgrade"
+          options={{
+            headerShown: false,
+            presentation: "card",
+          }}
+        />
+      </Stack>
+    </AuthGate>
   );
 }
 
@@ -61,13 +106,21 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <ErrorBoundary>
-        <QueryClientProvider client={queryClient}>
-          <GestureHandlerRootView>
-            <KeyboardProvider>
-              <RootLayoutNav />
-            </KeyboardProvider>
-          </GestureHandlerRootView>
-        </QueryClientProvider>
+        <AuthProvider>
+          <ActiveAssetProvider>
+            <WatchlistProvider>
+              <PortfolioSourceProvider>
+                <QueryClientProvider client={queryClient}>
+                  <GestureHandlerRootView style={{ flex: 1 }}>
+                    <KeyboardProvider>
+                      <RootLayoutNav />
+                    </KeyboardProvider>
+                  </GestureHandlerRootView>
+                </QueryClientProvider>
+              </PortfolioSourceProvider>
+            </WatchlistProvider>
+          </ActiveAssetProvider>
+        </AuthProvider>
       </ErrorBoundary>
     </SafeAreaProvider>
   );

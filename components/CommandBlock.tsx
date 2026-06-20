@@ -1,6 +1,8 @@
-import React, { useEffect, useRef } from "react";
-import { View, Text, StyleSheet, Animated, Platform } from "react-native";
+import React from "react";
+import { View, Text, StyleSheet } from "react-native";
 import { useColors } from "@/hooks/useColors";
+import { editorial } from "@/constants/editorial";
+import { resolveRegimeTextColor } from "@/lib/market-state/headerRegimeView";
 
 interface CommandBlockProps {
   asset: string;
@@ -10,87 +12,56 @@ interface CommandBlockProps {
   lastUpdate: string;
   marketMode?: string;
   confidence?: number | null;
+  transitionZone?: string | null;
+  /** Micro: show transition zone in place of Setup Activo. Macro: keep setup. */
+  showTransitionInsteadOfSetup?: boolean;
 }
 
 export function CommandBlock({
   asset,
   gamma,
   setup,
-  probability,
   lastUpdate,
   marketMode,
   confidence,
+  transitionZone,
+  showTransitionInsteadOfSetup = false,
 }: CommandBlockProps) {
   const colors = useColors();
-  const gammaColor =
-    gamma === "SHORT GAMMA"
-      ? colors.destructive
-      : gamma === "LONG GAMMA"
-        ? colors.success
-        : colors.mutedForeground;
-  const pulse = useRef(new Animated.Value(1)).current;
-
-  useEffect(() => {
-    const animation = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulse, {
-          toValue: 0.4,
-          duration: 1200,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulse, {
-          toValue: 1,
-          duration: 1200,
-          useNativeDriver: true,
-        }),
-      ])
-    );
-    animation.start();
-    return () => animation.stop();
-  }, [pulse]);
-
+  const regimeColor = resolveRegimeTextColor(gamma, {
+    success: colors.success,
+    destructive: colors.destructive,
+    mutedForeground: colors.mutedForeground,
+  });
 
   return (
-    <View style={[styles.container, { borderColor: colors.primary }]}>
-      <View style={[styles.topBar, { borderBottomColor: "#1a0005" }]}>
-        <View style={styles.liveRow}>
-          <Animated.View
-            style={[styles.livePulse, { backgroundColor: colors.primary, opacity: pulse }]}
-          />
-          <Text style={[styles.liveText, { color: colors.primary }]}>LIVE</Text>
-        </View>
-        <Text style={[styles.updateText, { color: colors.mutedForeground }]}>{lastUpdate}</Text>
-      </View>
+    <View style={styles.container}>
+      <Text style={[styles.meta, { color: colors.mutedForeground }]}>{lastUpdate}</Text>
 
-      <View style={styles.assetRow}>
-        <Text style={[styles.assetSymbol, { color: colors.foreground }]}>{asset}</Text>
-        <View style={[styles.arrow, { backgroundColor: "#1a0005" }]}>
-          <Text style={[styles.arrowText, { color: colors.primary }]}>→</Text>
-        </View>
-        <Text style={[styles.gammaLabel, { color: gammaColor }]}>{gamma}</Text>
-      </View>
+      <Text style={[styles.price, { color: colors.foreground }]}>{asset}</Text>
 
-      <View style={[styles.divider, { backgroundColor: "#1a0005" }]} />
+      <Text style={[styles.regime, { color: regimeColor }]}>{gamma}</Text>
 
-      <View style={styles.dataRow}>
-        <View style={[styles.dataCell, { flex: 2 }]}>
-          <Text style={[styles.dataCellLabel, { color: colors.mutedForeground }]}>MARKET MODE</Text>
-          <Text style={[styles.dataCellValue, { color: colors.foreground }]}>{marketMode ?? "—"}</Text>
+      <View style={styles.metaRow}>
+        <View style={styles.metaCell}>
+          <Text style={[styles.label, { color: colors.mutedForeground }]}>Modo de mercado</Text>
+          <Text style={[styles.metaValue, { color: colors.foreground }]}>{marketMode ?? "—"}</Text>
         </View>
-        <View style={[styles.dataCellDivider, { backgroundColor: "#1a0005" }]} />
-        <View style={styles.dataCell}>
-          <Text style={[styles.dataCellLabel, { color: colors.mutedForeground }]}>CONFIDENCE</Text>
-          <Text style={[styles.dataCellValue, { color: colors.gold }]}>{confidence !== null ? `${confidence}%` : "—"}</Text>
+        <View style={styles.metaCell}>
+          <Text style={[styles.label, { color: colors.mutedForeground }]}>Confidence</Text>
+          <Text style={[styles.metaValue, { color: colors.foreground }]}>
+            {confidence !== null && confidence !== undefined ? `${confidence}%` : "—"}
+          </Text>
         </View>
       </View>
 
-      <View style={[styles.divider, { backgroundColor: "#1a0005" }]} />
-
-      <View style={styles.dataRow}>
-        <View style={styles.dataCell}>
-          <Text style={[styles.dataCellLabel, { color: colors.mutedForeground }]}>SETUP ACTIVO</Text>
-          <Text style={[styles.setupValue, { color: colors.foreground }]}>{setup}</Text>
-        </View>
+      <View style={styles.actionBlock}>
+        <Text style={[styles.label, { color: colors.mutedForeground }]}>
+          {showTransitionInsteadOfSetup ? "Zona de transición" : "Setup activo"}
+        </Text>
+        <Text style={[styles.actionValue, { color: colors.foreground }]}>
+          {showTransitionInsteadOfSetup ? transitionZone ?? "—" : setup}
+        </Text>
       </View>
     </View>
   );
@@ -98,135 +69,54 @@ export function CommandBlock({
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: 4,
-    borderWidth: 1,
-    borderLeftWidth: 3,
-    backgroundColor: "#0d0000",
-    marginBottom: 12,
-    overflow: "hidden",
-    ...(Platform.OS === "ios"
-      ? {
-          shadowColor: "#e01e2e",
-          shadowOffset: { width: 0, height: 0 },
-          shadowOpacity: 0.25,
-          shadowRadius: 12,
-        }
-      : {}),
+    marginBottom: editorial.sectionGap,
+    gap: editorial.rowGap,
   },
-  topBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    gap: 8,
-  },
-  liveRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-  },
-  livePulse: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  liveText: {
-    fontSize: 9,
-    fontFamily: "Inter_700Bold",
-    letterSpacing: 2,
-  },
-  updateText: {
-    fontSize: 9,
+  meta: {
+    fontSize: editorial.metaSize,
     fontFamily: "Inter_400Regular",
+    letterSpacing: 0.4,
+  },
+  price: {
+    fontSize: editorial.heroSize,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 0.5,
+    lineHeight: 38,
+  },
+  regime: {
+    fontSize: editorial.leadSize,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 0.6,
+    lineHeight: 32,
+    marginTop: 2,
+  },
+  metaRow: {
+    flexDirection: "row",
+    gap: 24,
+    marginTop: editorial.blockGap - editorial.rowGap,
+  },
+  metaCell: {
     flex: 1,
+    gap: 4,
+  },
+  label: {
+    fontSize: editorial.metaSize,
+    fontFamily: "Inter_500Medium",
+    letterSpacing: editorial.labelTracking,
+  },
+  metaValue: {
+    fontSize: editorial.bodySize,
+    fontFamily: "Inter_600SemiBold",
     letterSpacing: 0.3,
   },
-  probPill: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 2,
+  actionBlock: {
+    gap: 4,
+    marginTop: 4,
   },
-  probText: {
-    color: "#ffffff",
-    fontSize: 9,
-    fontFamily: "Inter_700Bold",
-    letterSpacing: 1,
-  },
-  assetRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 18,
-    gap: 12,
-  },
-  assetSymbol: {
-    fontSize: 32,
-    fontFamily: "Inter_700Bold",
-    letterSpacing: 1,
-  },
-  arrow: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 2,
-  },
-  arrowText: {
-    fontSize: 18,
-    fontFamily: "Inter_700Bold",
-  },
-  gammaLabel: {
-    fontSize: 15,
-    fontFamily: "Inter_700Bold",
-    letterSpacing: 0.5,
-    flex: 1,
-  },
-  divider: {
-    height: 1,
-    marginHorizontal: 0,
-  },
-  dataRow: {
-    flexDirection: "row",
-    paddingVertical: 14,
-  },
-  dataCell: {
-    flex: 1,
-    paddingHorizontal: 16,
-  },
-  dataCellDivider: {
-    width: 1,
-  },
-  dataCellLabel: {
-    fontSize: 8,
+  actionValue: {
+    fontSize: 14,
     fontFamily: "Inter_600SemiBold",
-    letterSpacing: 1.5,
-    marginBottom: 5,
-  },
-  dataCellValue: {
-    fontSize: 20,
-    fontFamily: "Inter_700Bold",
-    letterSpacing: 0.5,
-  },
-  setupValue: {
-    fontSize: 13,
-    fontFamily: "Inter_700Bold",
-    letterSpacing: 0.5,
-    lineHeight: 19,
-  },
-  tagsRow: {
-    flexDirection: "row",
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-  },
-  tagPill: {
-    borderWidth: 1,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 2,
-  },
-  tagText: {
-    fontSize: 8,
-    fontFamily: "Inter_600SemiBold",
-    letterSpacing: 1,
+    letterSpacing: 0.3,
+    lineHeight: 20,
   },
 });

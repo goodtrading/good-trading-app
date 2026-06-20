@@ -1,0 +1,12 @@
+{
+  "authenticated": true,
+  "user": {
+    "id": 123,
+    "email": "[REDACTED]",
+    "emailVerified": true
+  },
+  "access": {
+    "allowed": true
+  },
+  "saasDisabled": false
+}

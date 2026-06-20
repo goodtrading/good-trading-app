@@ -1,0 +1,227 @@
+{
+  "asset": {
+    "symbol": "BTC",
+    "spot": {
+      "value": 63358.19,
+      "status": "available"
+    }
+  },
+  "micro": {
+    "context": "micro",
+    "horizon": { "code": "intraday", "label": "Minutes to hours" },
+    "gamma": {
+      "totalGex": { "value": null, "status": "not_applicable" },
+      "normalizedGex": { "value": null, "status": "not_applicable" },
+      "regime": { "value": "LONG_GAMMA", "status": "available" },
+      "regimeLabel": { "value": "Long gamma", "status": "available" },
+      "confidence": { "value": null, "status": "not_applicable" },
+      "flip": {
+        "type": "local",
+        "price": { "value": 63334.548424768305, "status": "available" },
+        "distance": {
+          "distancePct": 0.037314158172285325,
+          "distanceUsd": 23.64157523169706,
+          "position": "below_spot",
+          "signedDistancePct": -0.037314158172285325,
+          "signedDistanceUsd": -23.64157523169706,
+          "status": "available"
+        },
+        "reason": { "value": "LOCAL_CROSS", "status": "available" },
+        "source": { "value": "deribit_gamma_flip_local", "status": "available" }
+      },
+      "dealerPivot": {
+        "price": 65000,
+        "status": "available",
+        "type": "dealer_pivot",
+        "distance": {
+          "distancePct": 2.59,
+          "distanceUsd": 1641.81,
+          "position": "above_spot",
+          "signedDistancePct": 2.59,
+          "signedDistanceUsd": 1641.81,
+          "status": "available"
+        }
+      },
+      "transitionZone": {
+        "start": { "value": 62574.53384367109, "status": "available" },
+        "end": { "value": 64094.56300586552, "status": "available" }
+      },
+      "gammaMagnets": {
+        "items": [
+          { "price": 67000, "label": "Magnet A", "status": "available" }
+        ],
+        "status": "available"
+      },
+      "shortGammaPockets": {
+        "items": [
+          { "price": 64800, "label": "Pocket A", "status": "available" }
+        ],
+        "status": "available"
+      },
+      "dominantExpiry": {
+        "date": null,
+        "instrumentCode": null,
+        "daysToExpiry": null,
+        "status": "not_applicable"
+      }
+    },
+    "marketState": {
+      "classification": { "value": "FRAGILE_TRANSITION", "status": "available" },
+      "label": { "value": "FRAGILE TRANSITION", "status": "available" },
+      "confidence": { "value": 0.53, "status": "available" },
+      "tradeState": { "value": "WAIT", "status": "available" },
+      "volatilityState": { "value": "NORMAL", "status": "available" },
+      "drivers": { "items": [], "status": "available" }
+    },
+    "bias": {
+      "direction": { "value": "neutral", "status": "available" },
+      "label": { "value": "FRAGILE_TRANSITION", "status": "available" },
+      "confidence": { "value": 0.45, "status": "available" },
+      "horizon": { "code": "intraday", "label": "Minutes to hours", "status": "available" },
+      "thesis": { "value": "FRAGILE TRANSITION", "status": "available" },
+      "supportingFactors": { "items": [], "status": "available" },
+      "invalidation": { "value": "Bias invalidates", "status": "available" }
+    },
+    "risk": {
+      "cascade": { "level": { "value": "LOW", "status": "available" }, "status": "available" },
+      "squeeze": { "level": { "value": "NONE", "status": "available" }, "status": "available" },
+      "volatility": { "state": { "value": "NORMAL", "status": "available" }, "status": "available" }
+    },
+    "scenarios": {
+      "items": [
+        {
+          "id": 1,
+          "type": "base",
+          "classification": "intraday",
+          "title": { "value": "Range", "status": "available" },
+          "thesis": { "value": "Mean reversion", "status": "available" },
+          "status": "available"
+        }
+      ],
+      "status": "stale"
+    },
+    "optionsStructure": {
+      "callWall": { "price": 70000, "status": "available", "type": "call_wall" },
+      "putWall": { "price": 60000, "status": "available", "type": "put_wall" },
+      "dealerPivot": { "price": 65000, "status": "available", "type": "dealer_pivot" },
+      "gammaMagnets": { "items": [], "status": "available" },
+      "shortGammaPockets": { "items": [], "status": "available" },
+      "dominantExpiry": { "date": null, "instrumentCode": null, "daysToExpiry": null, "status": "not_applicable" }
+    },
+    "quality": { "scenarioSource": "storage", "scenarioStatus": "stale", "alertSource": "engine_rules", "warnings": [] }
+  },
+  "macro": {
+    "context": "macro",
+    "horizon": { "code": "structural", "label": "Session to days" },
+    "gamma": {
+      "totalGex": { "value": -121312.43386578263, "status": "available" },
+      "normalizedGex": { "value": -0.012130648315109072, "status": "available" },
+      "regime": { "value": "SHORT_GAMMA", "status": "available" },
+      "regimeLabel": { "value": "Short gamma", "status": "available" },
+      "confidence": { "value": null, "status": "not_applicable" },
+      "flip": {
+        "type": "global",
+        "price": { "value": 65565.17257890424, "status": "available" },
+        "distance": {
+          "distancePct": 3.48,
+          "distanceUsd": 2206.98,
+          "position": "above_spot",
+          "signedDistancePct": 3.48,
+          "signedDistanceUsd": 2206.98,
+          "status": "available"
+        },
+        "reason": { "value": null, "status": "not_applicable" },
+        "source": { "value": "legacy_structural_live", "status": "available" }
+      },
+      "dealerPivot": { "price": 65000, "status": "available", "type": "dealer_pivot" },
+      "transitionZone": {
+        "start": { "value": 65251.13796061774, "status": "available" },
+        "end": { "value": 66836.18584630077, "status": "available" }
+      },
+      "gammaMagnets": {
+        "items": [{ "price": 90000, "label": "SM1", "status": "available" }],
+        "status": "available"
+      },
+      "shortGammaPockets": {
+        "items": [{ "price": 87000, "label": "SGP1", "status": "available" }],
+        "status": "available"
+      },
+      "dominantExpiry": {
+        "date": null,
+        "instrumentCode": "BTC-20JUN26",
+        "daysToExpiry": null,
+        "status": "available"
+      }
+    },
+    "marketState": {
+      "classification": { "value": "FRAGILE_TRANSITION", "status": "available" },
+      "label": { "value": "FRAGILE TRANSITION", "status": "available" },
+      "confidence": { "value": 0.53, "status": "available" },
+      "tradeState": { "value": "WAIT", "status": "available" },
+      "volatilityState": { "value": "NORMAL", "status": "available" },
+      "drivers": { "items": [], "status": "available" }
+    },
+    "bias": {
+      "direction": { "value": "neutral", "status": "available" },
+      "label": { "value": "FRAGILE_TRANSITION", "status": "available" },
+      "confidence": { "value": 0.45, "status": "available" },
+      "horizon": { "code": "structural", "label": "Session to days", "status": "available" },
+      "thesis": { "value": "FRAGILE TRANSITION", "status": "available" },
+      "supportingFactors": { "items": [], "status": "available" },
+      "invalidation": { "value": "Bias invalidates", "status": "available" }
+    },
+    "risk": {
+      "cascade": { "level": { "value": "LOW", "status": "available" }, "status": "available" },
+      "squeeze": { "level": { "value": "NONE", "status": "available" }, "status": "available" },
+      "volatility": { "state": { "value": "NORMAL", "status": "available" }, "status": "available" }
+    },
+    "scenarios": {
+      "items": [
+        {
+          "id": 2,
+          "type": "alternative",
+          "classification": "structural",
+          "title": { "value": "Alt", "status": "available" },
+          "thesis": { "value": "Breakout", "status": "available" },
+          "status": "available"
+        },
+        {
+          "id": 3,
+          "type": "tail",
+          "classification": "tail",
+          "title": { "value": "Tail", "status": "available" },
+          "thesis": { "value": "Vol", "status": "available" },
+          "status": "available"
+        }
+      ],
+      "status": "stale"
+    },
+    "optionsStructure": {
+      "callWall": { "price": 70000, "status": "available", "type": "call_wall" },
+      "putWall": { "price": 60000, "status": "available", "type": "put_wall" },
+      "dealerPivot": { "price": 65000, "status": "available", "type": "dealer_pivot" },
+      "gammaMagnets": { "items": [], "status": "available" },
+      "shortGammaPockets": { "items": [], "status": "available" },
+      "dominantExpiry": {
+        "date": null,
+        "instrumentCode": "BTC-20JUN26",
+        "daysToExpiry": 8,
+        "status": "available"
+      }
+    },
+    "quality": { "scenarioSource": "storage", "scenarioStatus": "stale", "alertSource": "engine_rules", "warnings": [] }
+  },
+  "relationship": {
+    "status": "available",
+    "regimeAlignment": { "value": "divergent", "status": "available" },
+    "microRegime": { "value": "LONG_GAMMA", "status": "available" },
+    "macroRegime": { "value": "SHORT_GAMMA", "status": "available" },
+    "biasAlignment": { "value": "mixed", "status": "available" },
+    "flipOrdering": { "value": "local_below_global", "status": "available" },
+    "conflictLevel": { "value": "medium", "status": "available" },
+    "tradeImplication": { "value": "wait", "status": "available" },
+    "descriptionCode": { "value": "REGIME_DIVERGENT", "status": "available" }
+  },
+  "alerts": [],
+  "metadata": { "source": "production-shaped-fixture" }
+}

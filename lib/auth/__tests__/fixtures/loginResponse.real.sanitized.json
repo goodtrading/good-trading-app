@@ -1,0 +1,11 @@
+{
+  "token": "[REDACTED]",
+  "user": {
+    "id": 123,
+    "email": "[REDACTED]",
+    "emailVerified": true
+  },
+  "access": {
+    "allowed": true
+  }
+}

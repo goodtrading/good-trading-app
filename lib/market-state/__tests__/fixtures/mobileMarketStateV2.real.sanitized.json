@@ -1,0 +1,151 @@
+{
+  "status": "success",
+  "data": {
+    "asset": {
+      "symbol": "BTC",
+      "spot": {
+        "value": 85180.4,
+        "status": "available"
+      }
+    },
+    "micro": {
+      "localGammaFlip": {
+        "value": 84500,
+        "status": "available"
+      },
+      "distanceToLocalFlip": {
+        "signedDistanceUsd": 680.4,
+        "distanceUsd": 680.4,
+        "signedDistancePct": 0.8,
+        "distancePct": 0.8,
+        "position": "above_spot",
+        "status": "available"
+      },
+      "localRegime": {
+        "value": "SHORT GAMMA",
+        "status": "available"
+      },
+      "localTransitionZone": {
+        "value": "84k-85k",
+        "status": "available"
+      },
+      "nearbyMagnets": [
+        {
+          "price": 86000,
+          "label": "Local magnet",
+          "status": "available"
+        }
+      ],
+      "nearbyPockets": [
+        {
+          "price": 84800,
+          "label": "Short gamma pocket",
+          "status": "available"
+        }
+      ],
+      "intradayRisk": {
+        "value": "HIGH",
+        "status": "available"
+      },
+      "intradayBias": {
+        "value": "BEARISH",
+        "status": "available"
+      },
+      "baseIntradayScenario": {
+        "code": "INTRADAY_BASE",
+        "title": "Pullback",
+        "thesis": "Mean reversion to local flip",
+        "status": "available"
+      },
+      "totalGex": {
+        "value": null,
+        "status": "not_applicable"
+      }
+    },
+    "macro": {
+      "globalGammaFlip": {
+        "value": 83500,
+        "status": "available"
+      },
+      "totalGex": {
+        "value": -1200000000,
+        "status": "available"
+      },
+      "globalRegime": {
+        "value": "SHORT GAMMA",
+        "status": "available"
+      },
+      "callWall": {
+        "value": 88000,
+        "status": "available"
+      },
+      "putWall": {
+        "value": 80000,
+        "status": "available"
+      },
+      "dealerPivot": {
+        "value": 84200,
+        "status": "available"
+      },
+      "dominantExpiry": {
+        "date": "2026-06-20",
+        "instrumentCode": "BTC-20JUN26",
+        "daysToExpiry": 1,
+        "status": "available"
+      },
+      "structuralMagnets": [
+        {
+          "price": 90000,
+          "label": "Structural magnet",
+          "status": "available"
+        }
+      ],
+      "shortGammaPockets": [
+        {
+          "price": 87000,
+          "label": "Structural pocket",
+          "status": "available"
+        }
+      ],
+      "structuralScenarios": [],
+      "tailScenarios": []
+    },
+    "relationship": {
+      "regimeAlignment": {
+        "value": "DIVERGENT",
+        "status": "available"
+      },
+      "flipOrdering": {
+        "value": "LOCAL_ABOVE_GLOBAL",
+        "status": "available"
+      },
+      "conflictLevel": {
+        "value": "MEDIUM",
+        "status": "available"
+      },
+      "biasAlignment": {
+        "value": "MIXED",
+        "status": "available"
+      },
+      "tradeImplication": {
+        "value": "WAIT",
+        "status": "available"
+      },
+      "descriptionCode": {
+        "value": "REGIME_DIVERGENT",
+        "status": "available"
+      }
+    },
+    "alerts": [],
+    "metadata": {
+      "accessModel": "terminal_subscription_inherited",
+      "source": "sanitized-fixture"
+    }
+  },
+  "meta": {
+    "requestId": "req-sanitized-001",
+    "snapshotId": "snap-sanitized-001",
+    "generatedAt": "2026-06-19T12:00:00.000Z",
+    "servedAt": "2026-06-19T12:00:01.000Z"
+  }
+}

@@ -1,0 +1,15 @@
+emailVerified @ 331295: emailVerified:l?.emailVerified!==!1,login:k,register:M,logout:D,refreshSession:T
+emailVerified @ 331312: emailVerified!==!1,login:k,register:M,logout:D,refreshSession:T}),[m,e,i,l,d,g,k
+emailVerified @ 1299016: emailVerified===!1)return s.jsx(Al,{variant:"email_unverified"});if(!l?.allowed)
+fullName @ 330733: fullName:F?.trim()||void 0})}),j=await P.json().catch(()=>({}));if(!P.ok)throw n
+fullName @ 1349751: fullName="Ingresá tu nombre."),$||(j.email="Ingresá un email válido."),x.length<
+fullName @ 1350406: fullName?"border-red-500/60":"border-white/10"),type:"text",autoComplete:"name",
+role @ 158113: role":case"viewBox":case"width":case"height":dt(a,u,h);break;case"style":De(a,h,
+role @ 161441: role":ni(a,"http://www.w3.org/1999/xlink","xlink:arcrole",h);break;case"xlinkRol
+role @ 161493: role",h);break;case"xlinkRole":ni(a,"http://www.w3.org/1999/xlink","xlink:role",
+saasDisabled @ 329222: saasDisabled){p(!0),r(!1),c(null),f(null);return}if(p(!1),oI(O)){r(!0),O.user&&(
+saasDisabled @ 331228: saasDisabled:m,authReady:e,authenticated:i,user:l,access:d,token:g,emailVerified
+saasDisabled @ 338149: saasDisabled:c,user:d,logout:f}=Pi(),m=["TERMINAL","OPTIONS","FLOWS","VOLATILITY
+authenticated @ 328501: authenticated===!0)return!0;const e=t.user?.id;return e!=null&&Number.isFinite(N
+authenticated @ 328861: authenticated===!1&&e&&pf()}function cI({children:t}){const[e,n]=v.useState(!1),
+authenticated @ 329334: authenticated===!1&&(r(!1),c(null),f(null))},[]),T=v.useCallback(async()=>{const

@@ -1,19 +1,31 @@
 import React from "react";
-import { View, Text, StyleSheet } from "react-native";
-import { Feather } from "@expo/vector-icons";
+import { Pressable, Text, View, StyleSheet } from "react-native";
 import { useColors } from "@/hooks/useColors";
+import { editorial } from "@/constants/editorial";
+import type { AssetStatus } from "@/lib/assets/types";
+import type { FlipDistanceTone } from "@/lib/watchlist/flipDistance";
+import type { WatchlistRegimeTone } from "@/lib/watchlist/formatters";
 
 interface WatchlistItemProps {
   symbol: string;
   name: string;
   price: string;
-  change: string;
-  changeDirection: "up" | "down";
-  nearestLevel: string;
-  levelType: "support" | "resistance";
-  levelDistance: string;
-  pressure: "COMPRADORES" | "VENDEDORES" | "NEUTRO";
-  pressureStrength: number;
+  change?: string;
+  changeDirection?: "up" | "down" | "neutral";
+  showChange?: boolean;
+  gammaRegime?: string;
+  regimeTone?: WatchlistRegimeTone;
+  showRegime?: boolean;
+  localFlip?: string;
+  showLocalFlip?: boolean;
+  flipDistance?: string;
+  flipDistanceTone?: FlipDistanceTone;
+  showFlipDistance?: boolean;
+  isFavorite?: boolean;
+  status?: AssetStatus;
+  isActive?: boolean;
+  onPress?: () => void;
+  onToggleFavorite?: () => void;
 }
 
 export function WatchlistItem({
@@ -21,179 +33,176 @@ export function WatchlistItem({
   name,
   price,
   change,
-  changeDirection,
-  nearestLevel,
-  levelType,
-  levelDistance,
-  pressure,
-  pressureStrength,
+  changeDirection = "neutral",
+  showChange = false,
+  gammaRegime,
+  regimeTone = "neutral",
+  showRegime = false,
+  localFlip,
+  showLocalFlip = false,
+  flipDistance,
+  flipDistanceTone = "neutral",
+  showFlipDistance = false,
+  isFavorite = false,
+  status = "active",
+  isActive = false,
+  onPress,
+  onToggleFavorite,
 }: WatchlistItemProps) {
   const colors = useColors();
   const isUp = changeDirection === "up";
-  const changeColor = isUp ? colors.success : colors.primary;
-
-  const pressureColor =
-    pressure === "COMPRADORES"
+  const isDown = changeDirection === "down";
+  const changeColor = isUp ? colors.success : isDown ? colors.destructive : colors.mutedForeground;
+  const regimeColor =
+    regimeTone === "long"
       ? colors.success
-      : pressure === "VENDEDORES"
-      ? colors.primary
-      : colors.warning;
-
-  const pressureBarColor =
-    pressure === "COMPRADORES" ? colors.success : pressure === "VENDEDORES" ? colors.primary : colors.warning;
+      : regimeTone === "short"
+        ? colors.destructive
+        : colors.mutedForeground;
+  const flipDistanceColor =
+    flipDistanceTone === "above"
+      ? colors.success
+      : flipDistanceTone === "below"
+        ? colors.destructive
+        : colors.mutedForeground;
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.card, borderColor: colors.border }]}>
-      <View style={styles.topRow}>
-        <View style={styles.symbolSection}>
-          <Text style={[styles.symbol, { color: colors.foreground }]}>{symbol}</Text>
-          <Text style={[styles.name, { color: colors.mutedForeground }]}>{name}</Text>
-        </View>
-
-        <View style={styles.priceSection}>
-          <Text style={[styles.price, { color: colors.foreground }]}>${price}</Text>
-          <View style={styles.changeRow}>
-            <Feather name={isUp ? "arrow-up-right" : "arrow-down-right"} size={11} color={changeColor} />
-            <Text style={[styles.change, { color: changeColor }]}>{change}</Text>
-          </View>
-        </View>
-
-        <View style={[styles.levelSection, { borderLeftColor: colors.border }]}>
-          <Text style={[styles.levelLabel, { color: colors.mutedForeground }]}>
-            {levelType === "support" ? "SOPTE." : "RESST."}
-          </Text>
-          <Text
-            style={[
-              styles.levelPrice,
-              { color: levelType === "support" ? colors.success : colors.primary },
-            ]}
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [styles.container, { opacity: pressed ? 0.75 : 1 }]}
+    >
+      <View style={styles.symbolRow}>
+        {onToggleFavorite ? (
+          <Pressable
+            onPress={() => onToggleFavorite()}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={isFavorite ? "Quitar favorito" : "Marcar favorito"}
           >
-            ${nearestLevel}
-          </Text>
-          <Text style={[styles.levelDistance, { color: colors.mutedForeground }]}>{levelDistance}</Text>
-        </View>
-      </View>
-
-      <View style={[styles.pressureRow, { borderTopColor: colors.border }]}>
-        <Text style={[styles.pressureLabel, { color: colors.mutedForeground }]}>PRESIÓN</Text>
-
-        <View style={[styles.pressureBar, { backgroundColor: colors.secondary }]}>
-          <View
-            style={[
-              styles.pressureFill,
-              {
-                width: `${pressureStrength}%`,
-                backgroundColor: pressureBarColor,
-              },
-            ]}
-          />
-        </View>
-
-        <Text style={[styles.pressureValue, { color: pressureColor }]}>
-          {pressure}
+            <Text
+              style={[
+                styles.favoriteStar,
+                { color: isFavorite ? colors.gold ?? colors.primary : colors.mutedForeground },
+              ]}
+            >
+              {isFavorite ? "★" : "☆"}
+            </Text>
+          </Pressable>
+        ) : null}
+        <Text
+          style={[
+            styles.symbol,
+            {
+              color: colors.foreground,
+              fontFamily: isActive ? "Inter_700Bold" : "Inter_600SemiBold",
+            },
+          ]}
+        >
+          {symbol}
         </Text>
+        {status === "coming_soon" ? (
+          <Text style={[styles.comingSoonBadge, { color: colors.mutedForeground }]}>
+            Próximamente
+          </Text>
+        ) : null}
       </View>
-    </View>
+
+      <Text style={[styles.name, { color: colors.mutedForeground }]}>{name}</Text>
+      <Text style={[styles.price, { color: colors.foreground }]}>{price}</Text>
+
+      {showChange && change ? (
+        <View style={styles.changeRow}>
+          <Text style={[styles.changeIcon, { color: changeColor }]}>
+            {isUp ? "▲" : isDown ? "▼" : "—"}
+          </Text>
+          <Text style={[styles.change, { color: changeColor }]}>{change}</Text>
+        </View>
+      ) : null}
+
+      {showRegime && gammaRegime ? (
+        <Text style={[styles.regime, { color: regimeColor }]}>{gammaRegime}</Text>
+      ) : null}
+
+      {showLocalFlip && localFlip ? (
+        <Text style={[styles.localFlip, { color: colors.mutedForeground }]}>
+          Local Flip: {localFlip}
+        </Text>
+      ) : null}
+
+      {showFlipDistance && flipDistance ? (
+        <Text style={[styles.flipDistance, { color: flipDistanceColor }]}>{flipDistance}</Text>
+      ) : null}
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: 4,
-    borderWidth: 1,
-    marginBottom: 8,
-    overflow: "hidden",
+    paddingVertical: editorial.sectionGap / 2,
+    gap: 5,
   },
-  topRow: {
+  symbolRow: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 14,
+    gap: 6,
+    flexWrap: "wrap",
   },
-  symbolSection: {
-    flex: 1.1,
+  favoriteStar: {
+    fontSize: 14,
+    lineHeight: 18,
+    fontFamily: "Inter_700Bold",
   },
   symbol: {
-    fontSize: 16,
-    fontFamily: "Inter_700Bold",
+    fontSize: 18,
     letterSpacing: 0.5,
   },
-  name: {
+  comingSoonBadge: {
     fontSize: 9,
+    fontFamily: "Inter_500Medium",
+    letterSpacing: 0.4,
+  },
+  name: {
+    fontSize: 13,
     fontFamily: "Inter_400Regular",
-    marginTop: 2,
     letterSpacing: 0.2,
   },
-  priceSection: {
-    flex: 1.2,
-    alignItems: "flex-end",
-  },
   price: {
-    fontSize: 14,
+    fontSize: 22,
     fontFamily: "Inter_700Bold",
     letterSpacing: 0.3,
+    lineHeight: 28,
+    marginTop: 2,
   },
   changeRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 2,
-    marginTop: 3,
+    gap: 4,
+    marginTop: 2,
+  },
+  changeIcon: {
+    fontSize: 10,
+    fontFamily: "Inter_700Bold",
   },
   change: {
+    fontSize: 12,
+    fontFamily: "Inter_600SemiBold",
+  },
+  regime: {
+    fontSize: 13,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 0.4,
+    marginTop: 4,
+  },
+  localFlip: {
+    fontSize: 11,
+    fontFamily: "Inter_400Regular",
+    letterSpacing: 0.2,
+    marginTop: 2,
+  },
+  flipDistance: {
     fontSize: 11,
     fontFamily: "Inter_600SemiBold",
-  },
-  levelSection: {
-    flex: 1,
-    alignItems: "flex-end",
-    borderLeftWidth: 1,
-    paddingLeft: 12,
-    marginLeft: 10,
-  },
-  levelLabel: {
-    fontSize: 7,
-    fontFamily: "Inter_700Bold",
-    letterSpacing: 0.8,
-    marginBottom: 3,
-  },
-  levelPrice: {
-    fontSize: 12,
-    fontFamily: "Inter_700Bold",
-    letterSpacing: 0.3,
-  },
-  levelDistance: {
-    fontSize: 9,
-    fontFamily: "Inter_400Regular",
-    marginTop: 1,
-  },
-  pressureRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderTopWidth: 1,
-    gap: 10,
-  },
-  pressureLabel: {
-    fontSize: 8,
-    fontFamily: "Inter_600SemiBold",
-    letterSpacing: 1,
-    width: 50,
-  },
-  pressureBar: {
-    flex: 1,
-    height: 4,
-    borderRadius: 2,
-    overflow: "hidden",
-  },
-  pressureFill: {
-    height: 4,
-    borderRadius: 2,
-  },
-  pressureValue: {
-    fontSize: 9,
-    fontFamily: "Inter_700Bold",
-    letterSpacing: 0.8,
-    width: 80,
-    textAlign: "right",
+    letterSpacing: 0.2,
+    marginTop: 2,
   },
 });

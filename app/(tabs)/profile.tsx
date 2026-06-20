@@ -1,428 +1,321 @@
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  ScrollView,
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Image,
+  ActivityIndicator,
+  Linking,
   Platform,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  View,
 } from "react-native";
+import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Feather } from "@expo/vector-icons";
-import { useColors } from "@/hooks/useColors";
+import * as WebBrowser from "expo-web-browser";
 
-const DIFFERENTIALS = [
-  {
-    icon: "zap" as const,
-    title: "ALERTAS INSTITUCIONALES",
-    text: "Notificaciones push en tiempo real cuando cambia el gamma o rompe una zona clave.",
-  },
-  {
-    icon: "activity" as const,
-    title: "GAMMA EN VIVO",
-    text: "Exposición gamma actualizada cada 15 min. Sabes qué harán los dealers antes de que lo hagan.",
-  },
-  {
-    icon: "crosshair" as const,
-    title: "ZONAS DE LIQUIDEZ",
-    text: "Mapas de liquidez institucional. Exactamente dónde están los stops y dónde va el precio.",
-  },
-  {
-    icon: "bar-chart-2" as const,
-    title: "FLUJOS DE OPCIONES",
-    text: "Análisis diario del dark pool y opciones inusuales. Lo que el smart money mueve hoy.",
-  },
-  {
-    icon: "users" as const,
-    title: "COMUNIDAD PRIVADA",
-    text: "1,200+ traders activos. Análisis en vivo, sesiones de mercado y acceso directo.",
-  },
-];
+import { AccountHeader } from "@/components/account/AccountHeader";
+import { AccountRow } from "@/components/account/AccountRow";
+import { AccountSection } from "@/components/account/AccountSection";
+import { LogoutButton } from "@/components/account/LogoutButton";
+import { SubscriptionCard } from "@/components/account/SubscriptionCard";
+import { useColors } from "@/hooks/useColors";
+import { buildAccountScreenModel } from "@/lib/account/accountScreenModel";
+import {
+  APP_VERSION,
+  PRIVACY_URL,
+  SUPPORT_EMAIL,
+  TERMS_URL,
+  TERMINAL_WEB_URL,
+} from "@/lib/account/constants";
+import { formatOptionalBoolean } from "@/lib/account/formatUser";
+import {
+  formatTimezoneLabel,
+  loadAccountPreferences,
+  saveAccountPreferences,
+  type AccountPreferences,
+} from "@/lib/account/preferences";
+import { useAuth } from "@/lib/auth";
+
+function PreferenceToggleRow({
+  label,
+  value,
+  onValueChange,
+  disabled = false,
+  isLast = false,
+}: {
+  label: string;
+  value: boolean;
+  onValueChange: (next: boolean) => void;
+  disabled?: boolean;
+  isLast?: boolean;
+}) {
+  const colors = useColors();
+
+  return (
+    <AccountRow
+      label={label}
+      isLast={isLast}
+      disabled={disabled}
+      trailing={
+        <Switch
+          value={value}
+          onValueChange={onValueChange}
+          disabled={disabled}
+          trackColor={{ false: colors.border, true: colors.primary }}
+          thumbColor="#ffffff"
+        />
+      }
+    />
+  );
+}
 
 export default function ProfileScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const [selectedPlan, setSelectedPlan] = useState<"monthly" | "yearly">("yearly");
+  const router = useRouter();
+  const { status, user, access, saasDisabled, isAuthenticated, hydrationError } = useAuth();
+
+  const [preferences, setPreferences] = useState<AccountPreferences | null>(null);
+  const [prefsLoading, setPrefsLoading] = useState(true);
 
   const topPad = Platform.OS === "web" ? 67 : insets.top;
   const bottomPad = Platform.OS === "web" ? 34 + 84 : insets.bottom + 84;
 
+  useEffect(() => {
+    let active = true;
+    void loadAccountPreferences().then((loaded) => {
+      if (active) {
+        setPreferences(loaded);
+        setPrefsLoading(false);
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const screenModel = useMemo(
+    () =>
+      buildAccountScreenModel({
+        user,
+        access,
+        saasDisabled,
+        isAuthenticated,
+      }),
+    [access, isAuthenticated, saasDisabled, user],
+  );
+
+  const emailVerifiedLabel = formatOptionalBoolean(user?.emailVerified);
+
+  const persistPreferences = useCallback(async (next: AccountPreferences) => {
+    setPreferences(next);
+    await saveAccountPreferences(next);
+  }, []);
+
+  const openExternal = useCallback(async (url: string) => {
+    if (Platform.OS === "web" && typeof window !== "undefined") {
+      window.open(url, "_blank", "noopener,noreferrer");
+      return;
+    }
+    await WebBrowser.openBrowserAsync(url);
+  }, []);
+
+  const openUpgrade = useCallback(() => {
+    router.push("/upgrade");
+  }, [router]);
+
+  const openManageSubscription = useCallback(() => {
+    void openExternal(TERMINAL_WEB_URL);
+  }, [openExternal]);
+
+  const openSupport = useCallback(() => {
+    void Linking.openURL(`mailto:${SUPPORT_EMAIL}`);
+  }, []);
+
+  if (status === "loading") {
+    return (
+      <View style={[styles.centered, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={[styles.loadingText, { color: colors.mutedForeground }]}>
+          Cargando tu cuenta…
+        </Text>
+      </View>
+    );
+  }
+
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={{ paddingTop: topPad + 16, paddingBottom: bottomPad, paddingHorizontal: 16 }}
+      contentContainerStyle={{
+        paddingTop: topPad + 16,
+        paddingBottom: bottomPad,
+        paddingHorizontal: 16,
+      }}
       showsVerticalScrollIndicator={false}
     >
-      <View style={styles.heroHeader}>
-        <Image
-          source={require("@/assets/images/icon.png")}
-          style={[styles.logo, { borderColor: colors.primary }]}
-          resizeMode="contain"
+      <Text style={[styles.screenTitle, { color: colors.foreground }]}>Cuenta</Text>
+
+      {hydrationError ? (
+        <View style={[styles.banner, { borderColor: colors.warning, backgroundColor: "#1a1400" }]}>
+          <Text style={[styles.bannerText, { color: colors.warning }]}>
+            Modo offline: mostrando la última sesión conocida. {hydrationError}
+          </Text>
+        </View>
+      ) : null}
+
+      <AccountHeader user={user} subscription={screenModel.subscription} />
+
+      <SubscriptionCard
+        subscription={screenModel.subscription}
+        onUpgradePress={openUpgrade}
+        onManagePress={openManageSubscription}
+        onReactivatePress={openUpgrade}
+      />
+
+      <AccountSection title="MI CUENTA">
+        <AccountRow
+          label="Información personal"
+          value={user?.fullName?.trim() || "No disponible"}
         />
-        <View style={styles.heroText}>
-          <Text style={[styles.heroTitle, { color: colors.foreground }]}>
-            GOOD<Text style={{ color: colors.primary }}>TRADING</Text> PRO
-          </Text>
-          <Text style={[styles.heroSub, { color: colors.mutedForeground }]}>
-            INTEL QUE EL MERCADO NO REGALA
-          </Text>
-        </View>
-      </View>
+        <AccountRow label="Email" value={user?.email} />
+        {emailVerifiedLabel ? (
+          <AccountRow label="Estado de verificación" value={emailVerifiedLabel} />
+        ) : null}
+        <AccountRow
+          label="Cambiar contraseña"
+          onPress={() => void openExternal(`${TERMINAL_WEB_URL}/account`)}
+          isLast
+        />
+      </AccountSection>
 
-      <View style={[styles.urgencyBanner, { backgroundColor: "#1a0000", borderColor: colors.primary }]}>
-        <Feather name="clock" size={12} color={colors.primary} />
-        <Text style={[styles.urgencyText, { color: colors.primary }]}>
-          OFERTA FUNDADORES · PRECIO SUBE EN 7 DÍAS
-        </Text>
-      </View>
+      <AccountSection title="PREFERENCIAS">
+        <AccountRow
+          label="Zona horaria"
+          value={
+            preferences
+              ? formatTimezoneLabel(preferences.timezone)
+              : prefsLoading
+                ? "Cargando…"
+                : formatTimezoneLabel("UTC")
+          }
+        />
+        <AccountRow
+          label="Idioma"
+          value={preferences?.language ?? (prefsLoading ? "Cargando…" : "es-AR")}
+        />
+        {preferences ? (
+          <>
+            <PreferenceToggleRow
+              label="Alertas institucionales"
+              value={preferences.notifications.institutionalAlerts}
+              onValueChange={(next) =>
+                void persistPreferences({
+                  ...preferences,
+                  notifications: {
+                    ...preferences.notifications,
+                    institutionalAlerts: next,
+                  },
+                })
+              }
+            />
+            <PreferenceToggleRow
+              label="Cambios de régimen gamma"
+              value={preferences.notifications.gammaRegimeChanges}
+              onValueChange={(next) =>
+                void persistPreferences({
+                  ...preferences,
+                  notifications: {
+                    ...preferences.notifications,
+                    gammaRegimeChanges: next,
+                  },
+                })
+              }
+            />
+            <PreferenceToggleRow
+              label="Ruptura de zonas clave"
+              value={preferences.notifications.keyZoneBreaks}
+              onValueChange={(next) =>
+                void persistPreferences({
+                  ...preferences,
+                  notifications: {
+                    ...preferences.notifications,
+                    keyZoneBreaks: next,
+                  },
+                })
+              }
+            />
+            <PreferenceToggleRow
+              label="Squeeze / cascade"
+              value={preferences.notifications.squeezeCascade}
+              onValueChange={(next) =>
+                void persistPreferences({
+                  ...preferences,
+                  notifications: {
+                    ...preferences.notifications,
+                    squeezeCascade: next,
+                  },
+                })
+              }
+            />
+          </>
+        ) : null}
+        <AccountRow label="Permiso push del dispositivo" value="Próximamente" disabled />
+        <AccountRow label="Apariencia" value="Sistema" isLast />
+      </AccountSection>
 
-      <View style={[styles.planSelector, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <TouchableOpacity
-          style={[
-            styles.planOption,
-            selectedPlan === "monthly" && {
-              backgroundColor: colors.secondary,
-              borderColor: colors.border,
-            },
-          ]}
-          onPress={() => setSelectedPlan("monthly")}
-          activeOpacity={0.8}
-        >
-          <Text style={[styles.planAmount, { color: selectedPlan === "monthly" ? colors.foreground : colors.mutedForeground }]}>
-            $29
-          </Text>
-          <Text style={[styles.planPeriod, { color: colors.mutedForeground }]}>/ MES</Text>
-        </TouchableOpacity>
+      <AccountSection title="SEGURIDAD">
+        <AccountRow
+          label="Cambiar contraseña"
+          onPress={() => void openExternal(`${TERMINAL_WEB_URL}/account`)}
+          isLast
+        />
+      </AccountSection>
 
-        <TouchableOpacity
-          style={[
-            styles.planOption,
-            selectedPlan === "yearly" && {
-              backgroundColor: "#1a0005",
-              borderColor: colors.primary,
-            },
-          ]}
-          onPress={() => setSelectedPlan("yearly")}
-          activeOpacity={0.8}
-        >
-          <View style={styles.planTopRow}>
-            <Text style={[styles.planAmount, { color: selectedPlan === "yearly" ? colors.foreground : colors.mutedForeground }]}>
-              $199
-            </Text>
-            <View style={[styles.saveBadge, { backgroundColor: colors.primary }]}>
-              <Text style={styles.saveText}>AHORRA 43%</Text>
-            </View>
-          </View>
-          <Text style={[styles.planPeriod, { color: colors.mutedForeground }]}>/ AÑO · $16.5/mes</Text>
-        </TouchableOpacity>
-      </View>
+      <AccountSection title="SOPORTE Y APP">
+        <AccountRow label="Contactar soporte" onPress={openSupport} />
+        <AccountRow label="Términos y condiciones" onPress={() => void openExternal(TERMS_URL)} />
+        <AccountRow label="Política de privacidad" onPress={() => void openExternal(PRIVACY_URL)} />
+        <AccountRow label="Versión de la app" value={`v${APP_VERSION}`} />
+        <AccountRow
+          label="Estado de conexión"
+          value={hydrationError ? "Offline" : "Conectado"}
+          isLast
+        />
+      </AccountSection>
 
-      <TouchableOpacity
-        style={[
-          styles.ctaButton,
-          { backgroundColor: colors.primary },
-        ]}
-        activeOpacity={0.85}
-      >
-        <Text style={styles.ctaText}>
-          {selectedPlan === "yearly" ? "ACTIVAR PRO — $199/AÑO" : "ACTIVAR PRO — $29/MES"}
-        </Text>
-        <Feather name="arrow-right" size={16} color="#ffffff" />
-      </TouchableOpacity>
-
-      <Text style={[styles.ctaNote, { color: colors.mutedForeground }]}>
-        Sin contratos. Cancela cuando quieras.
-      </Text>
-
-      <View style={[styles.sectionDivider, { borderTopColor: colors.border }]}>
-        <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>QUÉ INCLUYE PRO</Text>
-      </View>
-
-      {DIFFERENTIALS.map((d) => (
-        <View
-          key={d.title}
-          style={[styles.diffRow, { borderBottomColor: colors.border }]}
-        >
-          <View style={[styles.diffIcon, { backgroundColor: "#1a0005" }]}>
-            <Feather name={d.icon} size={14} color={colors.primary} />
-          </View>
-          <View style={styles.diffContent}>
-            <Text style={[styles.diffTitle, { color: colors.foreground }]}>{d.title}</Text>
-            <Text style={[styles.diffText, { color: colors.secondaryForeground }]}>{d.text}</Text>
-          </View>
-        </View>
-      ))}
-
-      <View style={[styles.communityCard, { backgroundColor: "#080808", borderColor: colors.border }]}>
-        <View style={styles.communityTop}>
-          <Feather name="message-circle" size={16} color={colors.primary} />
-          <Text style={[styles.communityTitle, { color: colors.foreground }]}>COMUNIDAD PRIVADA</Text>
-          <View style={[styles.livePill, { borderColor: colors.success }]}>
-            <View style={[styles.liveDot, { backgroundColor: colors.success }]} />
-            <Text style={[styles.livePillText, { color: colors.success }]}>1.2K ACTIVOS</Text>
-          </View>
-        </View>
-        <Text style={[styles.communityDesc, { color: colors.secondaryForeground }]}>
-          Traders que operan con contexto real. No teoría — setups activos, análisis en vivo y cuando el mercado se mueve, alguien ya lo vio venir.
-        </Text>
-        <TouchableOpacity
-          style={[styles.communityBtn, { borderColor: colors.primary }]}
-          activeOpacity={0.8}
-        >
-          <Text style={[styles.communityBtnText, { color: colors.primary }]}>VER COMUNIDAD</Text>
-          <Feather name="external-link" size={12} color={colors.primary} />
-        </TouchableOpacity>
-      </View>
-
-      <View style={[styles.footer, { borderTopColor: colors.border }]}>
-        <TouchableOpacity>
-          <Text style={[styles.footerLink, { color: colors.mutedForeground }]}>Términos</Text>
-        </TouchableOpacity>
-        <Text style={[styles.footerDot, { color: colors.border }]}>·</Text>
-        <TouchableOpacity>
-          <Text style={[styles.footerLink, { color: colors.mutedForeground }]}>Privacidad</Text>
-        </TouchableOpacity>
-        <Text style={[styles.footerDot, { color: colors.border }]}>·</Text>
-        <TouchableOpacity>
-          <Text style={[styles.footerLink, { color: colors.mutedForeground }]}>Soporte</Text>
-        </TouchableOpacity>
-      </View>
-
-      <Text style={[styles.version, { color: colors.mutedForeground }]}>v1.0.0 · GOODTRADING</Text>
+      <LogoutButton />
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  heroHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 14,
-    marginBottom: 16,
-  },
-  logo: {
-    width: 44,
-    height: 44,
-    borderRadius: 4,
-    borderWidth: 2,
-  },
-  heroText: {},
-  heroTitle: {
-    fontSize: 18,
-    fontFamily: "Inter_700Bold",
-    letterSpacing: 2,
-  },
-  heroSub: {
-    fontSize: 9,
-    fontFamily: "Inter_500Medium",
-    letterSpacing: 1.5,
-    marginTop: 3,
-  },
-  urgencyBanner: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 7,
-    borderWidth: 1,
-    borderLeftWidth: 3,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    borderRadius: 4,
-    marginBottom: 14,
-  },
-  urgencyText: {
-    fontSize: 10,
-    fontFamily: "Inter_700Bold",
-    letterSpacing: 1,
-  },
-  planSelector: {
-    flexDirection: "row",
-    borderRadius: 4,
-    borderWidth: 1,
-    padding: 6,
-    gap: 6,
-    marginBottom: 12,
-  },
-  planOption: {
+  centered: {
     flex: 1,
-    borderRadius: 2,
-    borderWidth: 1,
-    borderColor: "transparent",
-    padding: 14,
-  },
-  planTopRow: {
-    flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-  },
-  planAmount: {
-    fontSize: 24,
-    fontFamily: "Inter_700Bold",
-  },
-  planPeriod: {
-    fontSize: 9,
-    fontFamily: "Inter_400Regular",
-    letterSpacing: 0.5,
-    marginTop: 3,
-  },
-  saveBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRadius: 2,
-  },
-  saveText: {
-    color: "#ffffff",
-    fontSize: 8,
-    fontFamily: "Inter_700Bold",
-    letterSpacing: 0.5,
-  },
-  ctaButton: {
-    flexDirection: "row",
     justifyContent: "center",
-    alignItems: "center",
-    gap: 8,
-    paddingVertical: 16,
-    borderRadius: 2,
-    marginBottom: 8,
-    ...(Platform.OS === "ios"
-      ? {
-          shadowColor: "#e01e2e",
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.4,
-          shadowRadius: 12,
-        }
-      : {}),
-  },
-  ctaText: {
-    color: "#ffffff",
-    fontSize: 14,
-    fontFamily: "Inter_700Bold",
-    letterSpacing: 1.5,
-  },
-  ctaNote: {
-    textAlign: "center",
-    fontSize: 10,
-    fontFamily: "Inter_400Regular",
-    marginBottom: 20,
-    letterSpacing: 0.3,
-  },
-  sectionDivider: {
-    borderTopWidth: 1,
-    paddingTop: 16,
-    marginBottom: 14,
-  },
-  sectionLabel: {
-    fontSize: 9,
-    fontFamily: "Inter_600SemiBold",
-    letterSpacing: 2,
-  },
-  diffRow: {
-    flexDirection: "row",
     gap: 12,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
+    paddingHorizontal: 24,
   },
-  diffIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 3,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  diffContent: {
-    flex: 1,
-  },
-  diffTitle: {
-    fontSize: 11,
-    fontFamily: "Inter_700Bold",
-    letterSpacing: 0.8,
-    marginBottom: 3,
-  },
-  diffText: {
+  loadingText: {
     fontSize: 12,
     fontFamily: "Inter_400Regular",
-    lineHeight: 17,
   },
-  communityCard: {
-    borderRadius: 4,
-    borderWidth: 1,
-    padding: 16,
-    marginTop: 16,
-    marginBottom: 12,
-  },
-  communityTop: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginBottom: 10,
-  },
-  communityTitle: {
-    fontSize: 12,
-    fontFamily: "Inter_700Bold",
-    letterSpacing: 1,
-    flex: 1,
-  },
-  livePill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    borderWidth: 1,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
-    borderRadius: 2,
-  },
-  liveDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-  },
-  livePillText: {
-    fontSize: 8,
+  screenTitle: {
+    fontSize: 22,
     fontFamily: "Inter_700Bold",
     letterSpacing: 0.5,
-  },
-  communityDesc: {
-    fontSize: 12,
-    fontFamily: "Inter_400Regular",
-    lineHeight: 18,
     marginBottom: 14,
   },
-  communityBtn: {
+  banner: {
     borderWidth: 1,
-    paddingVertical: 11,
-    borderRadius: 2,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 7,
+    borderRadius: 4,
+    padding: 12,
+    marginBottom: 12,
   },
-  communityBtnText: {
-    fontSize: 11,
-    fontFamily: "Inter_700Bold",
-    letterSpacing: 1.5,
-  },
-  footer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    paddingTop: 16,
-    borderTopWidth: 1,
-    marginBottom: 10,
-    gap: 8,
-  },
-  footerLink: {
+  bannerText: {
     fontSize: 11,
     fontFamily: "Inter_400Regular",
-  },
-  footerDot: {
-    fontSize: 12,
-  },
-  version: {
-    textAlign: "center",
-    fontSize: 9,
-    fontFamily: "Inter_400Regular",
-    letterSpacing: 1,
-    marginBottom: 4,
+    lineHeight: 16,
   },
 });

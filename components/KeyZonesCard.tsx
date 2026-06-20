@@ -1,153 +1,283 @@
-import React from "react";
-import { View, Text, StyleSheet } from "react-native";
-import { useColors } from "@/hooks/useColors";
+import React, { memo, useEffect, useState } from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
-interface Zone {
-  label: string;
-  price: string;
-  type: "resistance" | "support" | "current" | "neutral";
-  distance: string;
-  barColor?: string;
-}
+import { BottomSheetModal } from "@/components/BottomSheetModal";
+import { editorial } from "@/constants/editorial";
+import { useColors } from "@/hooks/useColors";
+import {
+  areKeyZonesEqual,
+  buildZoneKey,
+} from "@/lib/market-state/keyZoneSelectors";
+import {
+  isKeyZoneExpandable,
+  keyZoneMoreLabel,
+  logKeyZoneGroups,
+  type KeyZoneDetailItem,
+  type KeyZoneViewModel,
+} from "@/lib/market-state/v2UiMappers";
 
 interface KeyZonesCardProps {
-  zones: Zone[];
+  zones: KeyZoneViewModel[];
   selectedMode: "Macro" | "Micro";
 }
 
-export function KeyZonesCard({ zones, selectedMode }: KeyZonesCardProps) {
-  const colors = useColors();
-
-  const getZoneColor = (type: Zone["type"]) => {
-    if (type === "resistance") return colors.primary;
-    if (type === "support") return colors.success;
-    if (type === "neutral") return "transparent";
-    return colors.gold;
-  };
-
-  const modeFlipZone: Zone =
-    selectedMode === "Macro"
-      ? {
-          label: "GLOBAL FLIP",
-          price: "—",
-          type: "neutral",
-          distance: "—",
-          barColor: "#c4b4fd",
-        }
-      : {
-          label: "LOCAL FLIP",
-          price: "—",
-          type: "neutral",
-          distance: "—",
-          barColor: "#a9fbdd",
-        };
-
-  const displayZones = [...zones, modeFlipZone];
-
+function KeyZoneGroupDetail({
+  items,
+  colors,
+}: {
+  items: KeyZoneDetailItem[];
+  colors: ReturnType<typeof useColors>;
+}) {
   return (
-    <View style={[styles.container, { backgroundColor: colors.card, borderColor: colors.border }]}>
-      <View style={styles.header}>
-        <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>ZONAS CLAVE</Text>
-        <Text style={[styles.headerSub, { color: colors.mutedForeground }]}>BTC/USD</Text>
-      </View>
-
-      {displayZones.map((zone, index) => (
+    <View>
+      {items.map((item, index) => (
         <View
-          key={zone.label}
+          key={item.id}
           style={[
-            styles.row,
+            styles.detailRow,
             { borderBottomColor: colors.border },
-            zone.type === "current" && { backgroundColor: "#1a1000" },
-            index === displayZones.length - 1 && { borderBottomWidth: 0 },
+            index === items.length - 1 && styles.detailRowLast,
           ]}
         >
-          <View
-            style={[
-              styles.typeBar,
-              { backgroundColor: zone.barColor ?? getZoneColor(zone.type) },
-            ]}
-          />
-
-          <View style={styles.rowContent}>
-            <Text style={[styles.zoneLabel, { color: colors.mutedForeground }]}>{zone.label}</Text>
-            <View style={styles.rightSide}>
-              <Text style={[styles.price, { color: zone.type === "current" ? colors.gold : colors.foreground }]}>
-                {zone.price}
-              </Text>
-              <Text
-                style={[
-                  styles.distance,
-                  {
-                    color:
-                      zone.type === "current"
-                        ? colors.mutedForeground
-                        : zone.distance.startsWith("+")
-                        ? colors.success
-                        : colors.primary,
-                  },
-                ]}
-              >
-                {zone.distance && zone.distance !== "—" && zone.distance !== "-"
-                  ? zone.distance
-                  : null}
-              </Text>
-            </View>
-          </View>
+          <Text style={[styles.detailLabel, { color: colors.mutedForeground }]}>
+            {item.label}
+            {item.stale ? " · desactualizado" : ""}
+          </Text>
+          <Text style={[styles.detailPrice, { color: colors.foreground }]}>{item.price}</Text>
+          {item.distance && item.distance !== "—" ? (
+            <Text
+              style={[
+                styles.detailDistance,
+                {
+                  color: item.distance.startsWith("+") ? colors.success : colors.primary,
+                },
+              ]}
+            >
+              {item.distance}
+            </Text>
+          ) : null}
         </View>
       ))}
     </View>
   );
 }
 
+function KeyZonesCardComponent({ zones, selectedMode }: KeyZonesCardProps) {
+  const colors = useColors();
+  const [expandedZone, setExpandedZone] = useState<KeyZoneViewModel | null>(null);
+
+  useEffect(() => {
+    if (!__DEV__) return;
+    console.log("[KeyZonesCard render]");
+    console.log(`zoneCount: ${zones.length}`);
+    console.log(`labels: ${JSON.stringify(zones.map((zone) => zone.label))}`);
+    console.log(`selectedMode: ${selectedMode}`);
+    console.log(
+      "[KEYZONE KEYS]",
+      zones.map((zone) => ({
+        id: zone.id,
+        label: zone.label,
+        key: buildZoneKey(zone),
+        moreCount: zone.moreCount ?? 0,
+      })),
+    );
+    logKeyZoneGroups(zones);
+  }, [selectedMode, zones]);
+
+  const getZoneColor = (type: KeyZoneViewModel["type"]) => {
+    if (type === "resistance") return colors.primary;
+    if (type === "support") return colors.success;
+    if (type === "neutral") return "transparent";
+    return colors.gold;
+  };
+
+  const displayZones = zones;
+
+  return (
+    <>
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>
+            Niveles · {selectedMode}
+          </Text>
+        </View>
+
+        {displayZones.length === 0 ? (
+          <View style={styles.emptyRow}>
+            <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>No disponible</Text>
+          </View>
+        ) : (
+          displayZones.map((zone, index) => {
+            const expandable = isKeyZoneExpandable(zone);
+            const moreLabel = keyZoneMoreLabel(zone);
+            const isCurrent = zone.type === "current";
+            const rowStyle = [
+              styles.row,
+              index === displayZones.length - 1 && styles.rowLast,
+            ];
+            const row = (
+              <>
+                <View
+                  style={[
+                    styles.typeBar,
+                    { backgroundColor: zone.barColor ?? getZoneColor(zone.type) },
+                  ]}
+                />
+
+                <View style={styles.rowContent}>
+                  <View style={styles.leftSide}>
+                    <Text
+                      style={[
+                        styles.zoneLabel,
+                        {
+                          color: isCurrent ? colors.gold : colors.mutedForeground,
+                          fontFamily: isCurrent ? "Inter_700Bold" : "Inter_500Medium",
+                        },
+                      ]}
+                    >
+                      {zone.label}
+                      {zone.stale ? " · desactualizado" : ""}
+                    </Text>
+                    {moreLabel ? (
+                      <Text style={[styles.moreLabel, { color: colors.gold }]}>{moreLabel}</Text>
+                    ) : null}
+                  </View>
+
+                  <View style={styles.rightSide}>
+                    <Text
+                      style={[
+                        styles.price,
+                        {
+                          color: isCurrent ? colors.gold : colors.foreground,
+                          fontSize: isCurrent ? 15 : 13,
+                        },
+                      ]}
+                    >
+                      {zone.price}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.distance,
+                        {
+                          color:
+                            zone.type === "current"
+                              ? colors.mutedForeground
+                              : zone.distance.startsWith("+")
+                                ? colors.success
+                                : colors.primary,
+                        },
+                      ]}
+                    >
+                      {zone.distance && zone.distance !== "—" && zone.distance !== "-"
+                        ? zone.distance
+                        : null}
+                    </Text>
+                  </View>
+                </View>
+              </>
+            );
+
+            if (!expandable) {
+              return (
+                <View key={buildZoneKey(zone)} style={rowStyle}>
+                  {row}
+                </View>
+              );
+            }
+
+            return (
+              <Pressable
+                key={buildZoneKey(zone)}
+                onPress={() => setExpandedZone(zone)}
+                accessibilityRole="button"
+                accessibilityLabel={`Ver detalle de ${zone.label}`}
+                style={({ pressed }) => [rowStyle, pressed && styles.rowPressed]}
+              >
+                {row}
+              </Pressable>
+            );
+          })
+        )}
+      </View>
+
+      <BottomSheetModal
+        visible={expandedZone != null}
+        title={expandedZone?.modalTitle ?? expandedZone?.label ?? ""}
+        onClose={() => setExpandedZone(null)}
+      >
+        {expandedZone?.items ? (
+          <KeyZoneGroupDetail items={expandedZone.items} colors={colors} />
+        ) : null}
+      </BottomSheetModal>
+    </>
+  );
+}
+
+export const KeyZonesCard = memo(
+  KeyZonesCardComponent,
+  (previous, next) =>
+    previous.selectedMode === next.selectedMode &&
+    areKeyZonesEqual(previous.zones, next.zones),
+);
+
 const styles = StyleSheet.create({
   container: {
-    borderRadius: 4,
-    borderWidth: 1,
-    overflow: "hidden",
-    marginBottom: 12,
+    marginBottom: editorial.sectionGap,
+    gap: editorial.rowGap,
   },
   header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "#222222",
+    marginBottom: 4,
   },
   sectionLabel: {
-    fontSize: 10,
-    fontFamily: "Inter_600SemiBold",
-    letterSpacing: 1.5,
+    fontSize: editorial.metaSize,
+    fontFamily: "Inter_500Medium",
+    letterSpacing: editorial.labelTracking,
   },
-  headerSub: {
-    fontSize: 9,
+  emptyRow: {
+    paddingVertical: 12,
+    alignItems: "flex-start",
+  },
+  emptyText: {
+    fontSize: 11,
     fontFamily: "Inter_400Regular",
-    letterSpacing: 0.5,
   },
   row: {
     flexDirection: "row",
     alignItems: "center",
-    borderBottomWidth: 1,
+    paddingVertical: 8,
+  },
+  rowLast: {
+    paddingBottom: 0,
+  },
+  rowPressed: {
+    opacity: 0.72,
   },
   typeBar: {
-    width: 3,
-    height: "100%",
-    minHeight: 44,
+    width: 2,
+    alignSelf: "stretch",
+    minHeight: 36,
+    marginRight: 10,
   },
   rowContent: {
     flex: 1,
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 14,
-    paddingVertical: 11,
+  },
+  leftSide: {
+    flex: 1,
+    paddingRight: 12,
   },
   zoneLabel: {
     fontSize: 10,
     fontFamily: "Inter_500Medium",
     letterSpacing: 0.5,
-    flex: 1,
+  },
+  moreLabel: {
+    marginTop: 3,
+    fontSize: 9,
+    fontFamily: "Inter_600SemiBold",
+    letterSpacing: 0.4,
   },
   rightSide: {
     alignItems: "flex-end",
@@ -161,6 +291,30 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontFamily: "Inter_500Medium",
     marginTop: 2,
+    letterSpacing: 0.3,
+  },
+  detailRow: {
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+  },
+  detailRowLast: {
+    borderBottomWidth: 0,
+  },
+  detailLabel: {
+    fontSize: 10,
+    fontFamily: "Inter_600SemiBold",
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  detailPrice: {
+    fontSize: 14,
+    fontFamily: "Inter_700Bold",
+    letterSpacing: 0.4,
+  },
+  detailDistance: {
+    marginTop: 3,
+    fontSize: 9,
+    fontFamily: "Inter_500Medium",
     letterSpacing: 0.3,
   },
 });

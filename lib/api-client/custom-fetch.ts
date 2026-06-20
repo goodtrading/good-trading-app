@@ -1,5 +1,7 @@
 export type CustomFetchOptions = RequestInit & {
   responseType?: "json" | "text" | "blob" | "auto";
+  /** When false, preserves `{ status, data, meta }` success envelopes. Default: true. */
+  unwrapSuccessEnvelope?: boolean;
 };
 
 export type ErrorType<T = unknown> = ApiError<T>;
@@ -294,6 +296,7 @@ async function parseSuccessBody(
   response: Response,
   responseType: "json" | "text" | "blob" | "auto",
   requestInfo: { method: string; url: string },
+  unwrapSuccessEnvelope = true,
 ): Promise<unknown> {
   if (hasNoBody(response, requestInfo.method)) {
     return null;
@@ -307,6 +310,7 @@ async function parseSuccessBody(
       const parsed = await parseJsonBody(response, requestInfo);
       // Unwrap API responses with { status: "success", data: {...} } structure
       if (
+        unwrapSuccessEnvelope &&
         parsed &&
         typeof parsed === "object" &&
         "status" in parsed &&
@@ -338,7 +342,8 @@ export async function customFetch<T = unknown>(
   options: CustomFetchOptions = {},
 ): Promise<T> {
   input = applyBaseUrl(input);
-  const { responseType = "auto", headers: headersInit, ...init } = options;
+  const { responseType = "auto", headers: headersInit, unwrapSuccessEnvelope = true, ...init } =
+    options;
 
   const method = resolveMethod(input, init.method);
 
@@ -378,5 +383,10 @@ export async function customFetch<T = unknown>(
     throw new ApiError(response, errorData, requestInfo);
   }
 
-  return (await parseSuccessBody(response, responseType, requestInfo)) as T;
+  return (await parseSuccessBody(
+    response,
+    responseType,
+    requestInfo,
+    unwrapSuccessEnvelope,
+  )) as T;
 }

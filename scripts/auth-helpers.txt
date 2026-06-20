@@ -1,0 +1,15 @@
+function oI @ 328481
+function oI(t){if(t.authenticated===!0)return!0;const e=t.user?.id;return e!=null&&Number.isFinite(Number(e))}async function eh(){const t=await Ia("/api/auth/me",{method:"GET",credentials:"include",cache:"no-store",assertOk:!1});if(t.status===401||t.status===403)throw new Error("me:401");if(!t.ok)throw new Error(`me:${t.status}`);return t.json()}function lI(t){const e=!!hs();t.authenticated===!1&&e&&pf()}function cI({children:t}){const[e,n]=v.useState(!1),[i,r]=v.useState(!1),[l,c]=v.useState(nu
+---
+function hs @ 230724
+function hs(){try{return localStorage.getItem(Fb)}catch{return null}}function pf(){try{for(const t of c2)localStorage.removeItem(t),sessionStorage.removeItem(t)}catch{}typeof window<"u"&&window.dispatchEvent(new CustomEvent("gt-auth-token-change"))}function RT(t){try{if(t)localStorage.setItem(Fb,t);else{pf();return}}catch{}typeof window<"u"&&window.dispatchEvent(new CustomEvent("gt-auth-token-change"))}async function OT(t){if(!t.ok){const e=await t.text()||t.statusText;throw new Error(`${t.statu
+---
+function RT @ 230973
+function RT(t){try{if(t)localStorage.setItem(Fb,t);else{pf();return}}catch{}typeof window<"u"&&window.dispatchEvent(new CustomEvent("gt-auth-token-change"))}async function OT(t){if(!t.ok){const e=await t.text()||t.statusText;throw new Error(`${t.status}: ${e}`)}}function DT(){const t=hs();return t?{Authorization:`Bearer ${t}`}:{}}async function Ia(t,e={}){const{skipAuth:n=!1,assertOk:i=!0,headers:r,...l}=e,c=new Headers(r);if(!n)for(const[f,m]of Object.entries(DT()))m&&c.set(f,m);const d=await f
+---
+gt-auth-token @ 230949
+gt-auth-token-change"))}function RT(t){try{if(t)localStorage.setItem(Fb,t);else{pf();return}}catch{}typeof window<"u"&&window.dispatchEvent(new CustomEvent("gt-auth-token-change"))}async function OT(t){if(!t.ok){const e=await t.text()||t.statusText;throw new Error(`${t.status}: ${e}`)}}function DT(){const t=hs();return t?{Authorization:`Bearer ${t}`}:{}}async function Ia(t,e={}){const{skipAuth:n=!1,assertOk:i=!0,headers:r,...l}=e,c=new Headers(r);if(!n)for(const[f,m]of Object.entries(DT()))m&&c.
+---
+localStorage.setItem @ 230997
+localStorage.setItem(Fb,t);else{pf();return}}catch{}typeof window<"u"&&window.dispatchEvent(new CustomEvent("gt-auth-token-change"))}async function OT(t){if(!t.ok){const e=await t.text()||t.statusText;throw new Error(`${t.status}: ${e}`)}}function DT(){const t=hs();return t?{Authorization:`Bearer ${t}`}:{}}async function Ia(t,e={}){const{skipAuth:n=!1,assertOk:i=!0,headers:r,...l}=e,c=new Headers(r);if(!n)for(const[f,m]of Object.entries(DT()))m&&c.set(f,m);const d=await fetch(t,{credentials:"inc
+---

@@ -9,6 +9,10 @@ interface GammaCardProps {
   flipPoint: string;
   description: string;
   dominantExpiry: string;
+  hideNetGamma?: boolean;
+  netGammaStale?: boolean;
+  flipPointStale?: boolean;
+  dominantExpiryStale?: boolean;
 }
 
 export function GammaCard({
@@ -18,6 +22,10 @@ export function GammaCard({
   flipPoint,
   description,
   dominantExpiry,
+  hideNetGamma = false,
+  netGammaStale = false,
+  flipPointStale = false,
+  dominantExpiryStale = false,
 }: GammaCardProps) {
   const colors = useColors();
   const isShort = state === "SHORT";
@@ -25,6 +33,7 @@ export function GammaCard({
   const stateColor = isShort ? colors.primary : isTransition ? colors.gold : colors.success;
   const absLevel = Math.abs(level);
   const barWidth = `${absLevel}%` as const;
+  const staleSuffix = " (desactualizado)";
 
   return (
     <View style={[styles.container, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -53,21 +62,44 @@ export function GammaCard({
       </View>
 
       <View style={styles.statsRow}>
-        <View style={styles.statItem}>
-          <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>GAMMA NETA</Text>
-          <Text style={[styles.statValue, { color: stateColor }]}>{netGamma}</Text>
-        </View>
-        <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
+        {!hideNetGamma && (
+          <>
+            <View style={styles.statItem}>
+              <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>GAMMA NETA</Text>
+              <Text style={[styles.statValue, { color: stateColor }]}>
+                {netGamma}
+                {netGammaStale ? staleSuffix : ""}
+              </Text>
+            </View>
+            <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
+          </>
+        )}
         <View style={styles.statItem}>
           <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>FLIP POINT</Text>
-          <Text style={[styles.statValue, { color: colors.gold }]}>{flipPoint}</Text>
+          <Text style={[styles.statValue, { color: colors.gold }]}>
+            {flipPoint || "No disponible"}
+            {flipPointStale ? staleSuffix : ""}
+          </Text>
         </View>
-        <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-        <View style={styles.statItem}>
-          <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>EXP. DOMINANTE</Text>
-          <Text style={[styles.statValue, { color: colors.foreground }]}>{dominantExpiry}</Text>
-        </View>
+        {dominantExpiry ? (
+          <>
+            <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
+            <View style={styles.statItem}>
+              <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>EXP. DOMINANTE</Text>
+              <Text style={[styles.statValue, { color: colors.foreground }]}>
+                {dominantExpiry}
+                {dominantExpiryStale ? staleSuffix : ""}
+              </Text>
+            </View>
+          </>
+        ) : null}
       </View>
+
+      {description ? (
+        <Text style={[styles.description, { borderTopColor: colors.border, color: colors.mutedForeground }]}>
+          {description}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -142,6 +174,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: "Inter_700Bold",
     letterSpacing: 0.5,
+    textAlign: "center",
   },
   description: {
     fontSize: 10,
@@ -149,6 +182,5 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     padding: 12,
     borderTopWidth: 1,
-    color: "#888888",
   },
 });
