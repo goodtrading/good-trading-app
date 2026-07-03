@@ -12,6 +12,7 @@ import { SourceLogo } from "./SourceLogo";
 type AddAccountSheetProps = {
   visible: boolean;
   onClose: () => void;
+  onCreatePaperPress: () => void;
 };
 
 type AddOption = {
@@ -19,38 +20,39 @@ type AddOption = {
   label: string;
   sourceId?: PortfolioSourceId;
   comingSoon?: boolean;
-  description?: string;
+  disabled?: boolean;
 };
 
-const ADD_OPTIONS: AddOption[] = [
-  { id: "binance", label: "Conectar Binance", sourceId: "binance", comingSoon: true },
-  { id: "bingx", label: "Conectar BingX", sourceId: "bingx", comingSoon: true },
-  { id: "paper", label: "Crear cuenta Paper", sourceId: "paper" },
-  {
-    id: "more",
-    label: "Próximamente",
-    comingSoon: true,
-    description: "Bybit, OKX, Hyperliquid y wallets on-chain",
-  },
-];
-
-export function AddAccountSheet({ visible, onClose }: AddAccountSheetProps) {
+export function AddAccountSheet({ visible, onClose, onCreatePaperPress }: AddAccountSheetProps) {
   const colors = useColors();
-  const { setSelectedSource } = usePortfolioSource();
+  const { canCreatePaperAccount } = usePortfolioSource();
+
+  const ADD_OPTIONS: AddOption[] = [
+    {
+      id: "paper",
+      label: "Paper Trading",
+      sourceId: "paper",
+      disabled: !canCreatePaperAccount,
+    },
+    { id: "binance", label: "Binance", sourceId: "binance", comingSoon: true },
+    { id: "bingx", label: "BingX", sourceId: "bingx", comingSoon: true },
+  ];
 
   const handleOptionPress = (option: AddOption) => {
-    if (option.comingSoon) return;
-    if (option.sourceId) {
-      setSelectedSource(option.sourceId);
+    if (option.comingSoon || option.disabled) return;
+    if (option.id === "paper") {
+      onClose();
+      onCreatePaperPress();
+      return;
     }
     onClose();
   };
 
   return (
-    <BottomSheetModal visible={visible} title="AGREGAR CUENTA" onClose={onClose}>
+    <BottomSheetModal visible={visible} title="Agregar cuenta" onClose={onClose}>
       {ADD_OPTIONS.map((option, index) => {
         const isLast = index === ADD_OPTIONS.length - 1;
-        const disabled = Boolean(option.comingSoon && option.id !== "more");
+        const disabled = Boolean(option.comingSoon || option.disabled);
 
         return (
           <Pressable
@@ -66,16 +68,12 @@ export function AddAccountSheet({ visible, onClose }: AddAccountSheetProps) {
             <View style={styles.rowLeft}>
               {option.sourceId ? (
                 <SourceLogo sourceId={option.sourceId} size={28} />
-              ) : (
-                <View style={[styles.soonIcon, { borderColor: colors.border }]}>
-                  <Feather name="clock" size={14} color={colors.mutedForeground} />
-                </View>
-              )}
+              ) : null}
               <View style={styles.copy}>
                 <Text style={[styles.label, { color: colors.foreground }]}>{option.label}</Text>
-                {option.description ? (
+                {option.id === "paper" && !canCreatePaperAccount ? (
                   <Text style={[styles.description, { color: colors.mutedForeground }]}>
-                    {option.description}
+                    Máximo 3 cuentas Paper
                   </Text>
                 ) : null}
               </View>
@@ -123,13 +121,5 @@ const styles = StyleSheet.create({
     fontSize: 9,
     fontFamily: "Inter_600SemiBold",
     letterSpacing: 0.5,
-  },
-  soonIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
   },
 });

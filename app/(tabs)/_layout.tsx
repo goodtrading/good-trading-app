@@ -5,8 +5,10 @@ import { Icon, Label, NativeTabs } from "expo-router/unstable-native-tabs";
 import { SymbolView } from "expo-symbols";
 import { Feather } from "@expo/vector-icons";
 import React from "react";
-import { Platform, StyleSheet, View, useColorScheme } from "react-native";
+import { Platform, StyleSheet, View } from "react-native";
 import { useColors } from "@/hooks/useColors";
+import { CarteraTabAnchoredSwitcher } from "@/components/cartera/CarteraTabAnchoredSwitcher";
+import { CarteraTabShellProvider, useCarteraTabShell } from "@/lib/cartera/context/CarteraTabShellContext";
 
 function NativeTabLayout() {
   return (
@@ -37,8 +39,7 @@ function NativeTabLayout() {
 
 function ClassicTabLayout() {
   const colors = useColors();
-  const colorScheme = useColorScheme();
-  const isDark = colorScheme === "dark";
+  const { handleCarteraTabPress } = useCarteraTabShell();
   const isIOS = Platform.OS === "ios";
   const isWeb = Platform.OS === "web";
 
@@ -117,6 +118,11 @@ function ClassicTabLayout() {
       />
       <Tabs.Screen
         name="learn"
+        listeners={({ navigation }) => ({
+          tabPress: (event) => {
+            handleCarteraTabPress(navigation.isFocused(), event);
+          },
+        })}
         options={{
           title: "CARTERA",
           tabBarIcon: ({ color }) =>
@@ -143,11 +149,26 @@ function ClassicTabLayout() {
   );
 }
 
-export default function TabLayout() {
+function TabLayoutContent() {
   if (isLiquidGlassAvailable()) {
     return <NativeTabLayout />;
   }
   return <ClassicTabLayout />;
 }
 
-const styles = StyleSheet.create({});
+export default function TabLayout() {
+  return (
+    <CarteraTabShellProvider>
+      <View style={styles.shell}>
+        <TabLayoutContent />
+        <CarteraTabAnchoredSwitcher />
+      </View>
+    </CarteraTabShellProvider>
+  );
+}
+
+const styles = StyleSheet.create({
+  shell: {
+    flex: 1,
+  },
+});

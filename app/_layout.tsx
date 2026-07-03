@@ -17,7 +17,6 @@ import { setBaseUrl } from "@/lib/api-client";
 import { getApiBaseUrl } from "@/lib/api/config";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import { ActiveAssetProvider } from "@/lib/assets";
-import { PortfolioSourceProvider } from "@/lib/portfolio";
 import { WatchlistProvider } from "@/lib/watchlist";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -109,15 +108,13 @@ export default function RootLayout() {
         <AuthProvider>
           <ActiveAssetProvider>
             <WatchlistProvider>
-              <PortfolioSourceProvider>
-                <QueryClientProvider client={queryClient}>
-                  <GestureHandlerRootView style={{ flex: 1 }}>
-                    <KeyboardProvider>
-                      <RootLayoutNav />
-                    </KeyboardProvider>
-                  </GestureHandlerRootView>
-                </QueryClientProvider>
-              </PortfolioSourceProvider>
+              <QueryClientProvider client={queryClient}>
+                <GestureHandlerRootView style={{ flex: 1 }}>
+                  <KeyboardProvider>
+                    <RootLayoutNav />
+                  </KeyboardProvider>
+                </GestureHandlerRootView>
+              </QueryClientProvider>
             </WatchlistProvider>
           </ActiveAssetProvider>
         </AuthProvider>

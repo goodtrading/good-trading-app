@@ -8,6 +8,7 @@ type SourceLogoProps = {
   sourceId: PortfolioSourceId | "add";
   brandColor?: string;
   size?: number;
+  avatarLetter?: string;
 };
 
 function BinanceMark({ size }: { size: number }) {
@@ -34,7 +35,12 @@ function BingXMark({ size }: { size: number }) {
   );
 }
 
-export function SourceLogo({ sourceId, brandColor = "#666666", size = 22 }: SourceLogoProps) {
+export function SourceLogo({
+  sourceId,
+  brandColor = "#666666",
+  size = 22,
+  avatarLetter,
+}: SourceLogoProps) {
   if (sourceId === "binance") {
     return <BinanceMark size={size} />;
   }
@@ -44,9 +50,10 @@ export function SourceLogo({ sourceId, brandColor = "#666666", size = 22 }: Sour
   }
 
   if (sourceId === "paper") {
+    const letter = avatarLetter ?? "P";
     return (
       <View style={[styles.letterWrap, { width: size, height: size, backgroundColor: "#1a1a1a" }]}>
-        <Text style={[styles.letter, { fontSize: size * 0.42 }]}>P</Text>
+        <Text style={[styles.letter, { fontSize: size * 0.42 }]}>{letter}</Text>
       </View>
     );
   }

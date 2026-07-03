@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from "react";
 import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { useColors } from "@/hooks/useColors";
+import { accountAvatarLetter } from "@/lib/portfolio/accounts/format";
 import type { PortfolioSourceMeta } from "@/lib/portfolio/types";
 
 import { SourceLogo } from "./SourceLogo";
@@ -10,6 +11,7 @@ const CHIP_SIZE = 36;
 
 type PortfolioSourceChipProps = {
   source?: PortfolioSourceMeta;
+  displayName?: string;
   variant?: "source" | "add";
   selected?: boolean;
   onPress: () => void;
@@ -18,6 +20,7 @@ type PortfolioSourceChipProps = {
 
 export function PortfolioSourceChip({
   source,
+  displayName,
   variant = "source",
   selected = false,
   onPress,
@@ -25,6 +28,8 @@ export function PortfolioSourceChip({
 }: PortfolioSourceChipProps) {
   const colors = useColors();
   const scale = useRef(new Animated.Value(selected ? 1 : 0.96)).current;
+  const avatarLetter =
+    source?.id === "paper" && displayName ? accountAvatarLetter(displayName) : undefined;
 
   useEffect(() => {
     Animated.spring(scale, {
@@ -57,20 +62,21 @@ export function PortfolioSourceChip({
         ]}
       >
         {variant === "add" ? (
-          <SourceLogo sourceId="add" brandColor={colors.mutedForeground} size={20} />
+          <SourceLogo sourceId="add" brandColor={colors.primary} size={20} />
         ) : source ? (
           <View style={styles.logoWrap}>
             <SourceLogo
               sourceId={source.id}
               brandColor={source.brandColor}
               size={30}
+              avatarLetter={avatarLetter}
             />
           </View>
         ) : null}
       </Animated.View>
       {source && selected ? (
         <Text style={[styles.caption, { color: colors.primary }]} numberOfLines={1}>
-          {source.name}
+          {displayName ?? source.name}
         </Text>
       ) : null}
     </Pressable>
