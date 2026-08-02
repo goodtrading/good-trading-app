@@ -16,19 +16,35 @@ export function createEmptyPersistedState(
 ): PortfolioPersistedState {
   return {
     initialCashBalance,
+    /** Mutable cash starts equal to genesis deposit. */
+    walletCash: initialCashBalance,
     trades: [],
+    financialEvents: [],
     orders: [],
     fills: [],
   };
 }
 
-function clonePersistedState(state: PortfolioPersistedState): PortfolioPersistedState {
+function normalizePersistedState(
+  state: PortfolioPersistedState,
+): PortfolioPersistedState {
+  const initialCashBalance =
+    state.initialCashBalance ?? DEFAULT_INITIAL_CASH_BALANCE;
   return {
-    initialCashBalance: state.initialCashBalance,
-    trades: [...state.trades],
-    orders: [...state.orders],
-    fills: [...state.fills],
+    initialCashBalance,
+    walletCash: state.walletCash ?? initialCashBalance,
+    trades: Array.isArray(state.trades) ? [...state.trades] : [],
+    financialEvents: Array.isArray(state.financialEvents) ? [...state.financialEvents] : [],
+    orders: Array.isArray(state.orders) ? [...state.orders] : [],
+    fills: Array.isArray(state.fills) ? [...state.fills] : [],
+    ...(Array.isArray(state.ocoGroups) ? { ocoGroups: [...state.ocoGroups] } : {}),
+    ...(Array.isArray(state.trailingStops) ? { trailingStops: [...state.trailingStops] } : {}),
+    ...(state.insuranceFund ? { insuranceFund: { ...state.insuranceFund } } : {}),
   };
+}
+
+function clonePersistedState(state: PortfolioPersistedState): PortfolioPersistedState {
+  return normalizePersistedState(state);
 }
 
 export class MemoryPortfolioStorage implements PortfolioStorage {
@@ -73,12 +89,7 @@ export class AsyncPortfolioStorage implements PortfolioStorage {
     }
 
     const parsed = JSON.parse(raw) as PortfolioPersistedState;
-    return {
-      initialCashBalance: parsed.initialCashBalance ?? DEFAULT_INITIAL_CASH_BALANCE,
-      trades: Array.isArray(parsed.trades) ? [...parsed.trades] : [],
-      orders: Array.isArray(parsed.orders) ? [...parsed.orders] : [],
-      fills: Array.isArray(parsed.fills) ? [...parsed.fills] : [],
-    };
+    return normalizePersistedState(parsed);
   }
 
   async save(state: PortfolioPersistedState): Promise<void> {

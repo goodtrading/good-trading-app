@@ -1,20 +1,23 @@
 import { PORTFOLIO_V1_SYMBOL } from "@/lib/portfolio/constants";
 
-export function formatUsd(value: number, decimals = 2): string {
+/** Canonical USD number: 2,000.55 (comma thousands, dot decimal). */
+export function formatMoney(value: number, decimals = 2): string {
   const sign = value < 0 ? "-" : "";
-  return `${sign}$${Math.abs(value).toLocaleString("en-US", {
+  return `${sign}${Math.abs(value).toLocaleString("en-US", {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
   })}`;
 }
 
+export function formatUsd(value: number, decimals = 2): string {
+  const sign = value < 0 ? "-" : "";
+  return `${sign}$${formatMoney(Math.abs(value), decimals)}`;
+}
+
 export function formatSignedUsd(value: number, decimals = 2): string {
   if (value === 0) return formatUsd(0, decimals);
   const sign = value > 0 ? "+" : "-";
-  return `${sign}$${Math.abs(value).toLocaleString("en-US", {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  })}`;
+  return `${sign}$${formatMoney(Math.abs(value), decimals)}`;
 }
 
 export function formatQuantity(value: number, maxDecimals = 2): string {

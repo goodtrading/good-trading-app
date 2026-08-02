@@ -12,7 +12,10 @@ import {
 import {
   KEY_ZONE_GROUP_NEARBY_MAGNET,
   KEY_ZONE_GROUP_SHORT_GAMMA_POCKET,
-  KEY_ZONE_GROUP_STRUCTURAL_MAGNET,
+  KEY_ZONE_LABEL_CALL_WALL,
+  KEY_ZONE_LABEL_DEALER_PIVOT,
+  KEY_ZONE_LABEL_PUT_WALL,
+  KEY_ZONE_ROW_STRUCTURAL_MAGNET,
   mapKeyZonesFromMacro,
   mapKeyZonesFromMicro,
 } from "@/lib/market-state/v2UiMappers";
@@ -158,10 +161,10 @@ describe("key zone flip integration", () => {
     const macroZones = mapKeyZonesFromMacro(richMacro, spot).map((z) => z.label);
     expect(macroZones).toEqual([
       KEY_ZONE_LABEL_GLOBAL_FLIP,
-      "CALL WALL",
-      "PUT WALL",
-      "DEALER PIVOT",
-      KEY_ZONE_GROUP_STRUCTURAL_MAGNET,
+      KEY_ZONE_LABEL_CALL_WALL,
+      KEY_ZONE_LABEL_PUT_WALL,
+      KEY_ZONE_LABEL_DEALER_PIVOT,
+      KEY_ZONE_ROW_STRUCTURAL_MAGNET,
       KEY_ZONE_GROUP_SHORT_GAMMA_POCKET,
     ]);
   });

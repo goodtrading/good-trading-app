@@ -1,5 +1,8 @@
 import { z } from "zod";
 
+import { createZeroTradeFees } from "@/lib/portfolio/fees/FeeModel";
+import { hydrateTradeFees } from "@/lib/portfolio/fees/hydrateTradeFees";
+import { resolveWalletBalance } from "@/lib/portfolio/fees/resolveWalletBalance";
 import type { Trade } from "@/lib/portfolio/types";
 
 /** Ledger entry discriminator — aligned with DOMAIN_MODEL v1.0 union. */
@@ -12,6 +15,33 @@ export const LEDGER_ENTRY_TYPES = [
 ] as const;
 
 export type LedgerEntryType = (typeof LEDGER_ENTRY_TYPES)[number];
+
+const feeBreakdownSchema = z
+  .object({
+    makerFee: z.number().finite().nonnegative(),
+    takerFee: z.number().finite().nonnegative(),
+    openingFee: z.number().finite().nonnegative(),
+    closingFee: z.number().finite().nonnegative(),
+    fundingFee: z.number().finite().nonnegative(),
+    totalFee: z.number().finite().nonnegative(),
+    currency: z.string().min(3),
+    feeModelVersion: z.string().min(1),
+  })
+  .strict();
+
+const tradeFeeRecordSchema = z
+  .object({
+    openingFee: z.number().finite().nonnegative(),
+    closingFee: z.number().finite().nonnegative(),
+    fundingFee: z.number().finite().nonnegative(),
+    totalFee: z.number().finite().nonnegative(),
+    feeCurrency: z.string().min(3),
+    feeModelVersion: z.string().min(1),
+    breakdown: feeBreakdownSchema,
+  })
+  .strict();
+
+export { feeBreakdownSchema, tradeFeeRecordSchema };
 
 const moneySchema = z
   .object({
@@ -121,7 +151,19 @@ export const legacyTradeSchema = z
     price: z.number().positive().finite(),
     timestamp: z.number().int().positive(),
     source: z.enum(["PAPER", "BINANCE", "BINGX"]),
-    fees: z.number().finite().nonnegative().optional(),
+    /** Legacy scalar or full fee record — hydrated on read. */
+    fees: z
+      .union([tradeFeeRecordSchema, z.number().finite().nonnegative()])
+      .optional(),
+    leverage: z.number().positive().finite().optional(),
+    positionMode: z.enum(["LONG", "SHORT"]).optional(),
+    positionSide: z.enum(["LONG", "SHORT"]).optional(),
+    marginMode: z.enum(["CROSS", "ISOLATED"]).optional(),
+    liquidation: z.boolean().optional(),
+    reduceOnly: z.boolean().optional(),
+    postOnly: z.boolean().optional(),
+    executionLiquidity: z.enum(["MAKER", "TAKER", "UNKNOWN"]).optional(),
+    triggerReason: z.enum(["TAKE_PROFIT", "STOP_LOSS", "MANUAL", "TRAILING_STOP"]).optional(),
   })
   .strict();
 
@@ -140,29 +182,40 @@ export class LedgerIntegrityError extends Error {
 }
 
 export function tradeToTradeExecutionEntry(trade: Trade, sequence: number): TradeExecutionEntry {
+  const hydrated = hydrateTradeFees(trade);
   const normalized = {
-    id: trade.id,
+    id: hydrated.id,
     entryType: "TradeExecution" as const,
     sequence,
-    timestamp: trade.timestamp,
-    instrumentId: trade.symbol,
-    side: trade.side,
-    quantity: trade.quantity,
-    price: { amount: trade.price, currency: "USD" },
-    ...(trade.fees != null
-      ? { fees: { amount: trade.fees, currency: "USD" } }
-      : {}),
-    source: trade.source,
-    externalRef: trade.id,
+    timestamp: hydrated.timestamp,
+    instrumentId: hydrated.symbol,
+    side: hydrated.side,
+    quantity: hydrated.quantity,
+    price: { amount: hydrated.price, currency: "USD" },
+    fees: { amount: hydrated.fees.totalFee, currency: "USD" },
+    source: hydrated.source,
+    externalRef: hydrated.id,
   };
 
   return tradeExecutionEntrySchema.parse(normalized);
 }
 
+function legacyEntryToTrade(data: z.infer<typeof legacyTradeSchema>): Trade {
+  const { fees: rawFees, ...rest } = data;
+  const trade = {
+    ...rest,
+    fees: createZeroTradeFees(),
+  } as Trade;
+  if (rawFees != null && typeof rawFees === "object") {
+    trade.fees = rawFees;
+  }
+  return hydrateTradeFees(trade);
+}
+
 export function validateLedgerEntry(entry: unknown): LedgerEntry | Trade {
   const legacy = legacyTradeSchema.safeParse(entry);
   if (legacy.success) {
-    return legacy.data;
+    return legacyEntryToTrade(legacy.data);
   }
 
   const parsed = ledgerEntrySchema.safeParse(entry);
@@ -178,6 +231,7 @@ export function validateLedgerEntry(entry: unknown): LedgerEntry | Trade {
 export function assertLedgerIntegrity(
   entries: unknown[],
   initialCashBalance: number,
+  financialEvents?: import("@/lib/portfolio/financial/types").FinancialEvent[],
 ): void {
   if (!Array.isArray(entries)) {
     throw new LedgerIntegrityError("Ledger entries must be an array");
@@ -222,14 +276,64 @@ export function assertLedgerIntegrity(
 
   const legacyTrades = validated.filter((entry): entry is Trade => !("entryType" in entry));
   if (legacyTrades.length > 0) {
-    const cash = legacyTrades.reduce((balance, trade) => {
-      const notional = trade.quantity * trade.price + (trade.fees ?? 0);
-      return trade.side === "BUY" ? balance - notional : balance + notional;
-    }, initialCashBalance);
+    // Futures wallet = deposit + realized PnL (opens do not spend notional).
+    let quantity = 0;
+    let costBasis = 0;
+    let realizedPnL = 0;
 
-    if (cash < -0.000_001) {
+    const sorted = [...legacyTrades].sort((a, b) => a.timestamp - b.timestamp);
+    for (const raw of sorted) {
+      const trade = hydrateTradeFees(raw);
+
+      if (trade.side === "BUY") {
+        if (quantity >= 0) {
+          quantity += trade.quantity;
+          costBasis += trade.quantity * trade.price;
+        } else {
+          const shortQty = -quantity;
+          const avgEntry = costBasis / shortQty;
+          if (trade.quantity < shortQty) {
+            realizedPnL += trade.quantity * (avgEntry - trade.price);
+            costBasis -= trade.quantity * avgEntry;
+            quantity += trade.quantity;
+          } else {
+            realizedPnL += shortQty * (avgEntry - trade.price);
+            const excess = trade.quantity - shortQty;
+            quantity = excess;
+            costBasis = excess > 0 ? excess * trade.price : 0;
+          }
+        }
+      } else if (quantity <= 0) {
+        quantity -= trade.quantity;
+        costBasis += trade.quantity * trade.price;
+      } else {
+        const avgEntry = costBasis / quantity;
+        if (trade.quantity < quantity) {
+          realizedPnL += trade.quantity * (trade.price - avgEntry);
+          costBasis -= trade.quantity * avgEntry;
+          quantity -= trade.quantity;
+        } else if (trade.quantity === quantity) {
+          realizedPnL += trade.quantity * (trade.price - avgEntry);
+          quantity = 0;
+          costBasis = 0;
+        } else {
+          realizedPnL += quantity * (trade.price - avgEntry);
+          const excess = trade.quantity - quantity;
+          quantity = -excess;
+          costBasis = excess * trade.price;
+        }
+      }
+    }
+
+    // Second arg is mutable walletCash (not immutable genesis deposit).
+    const wallet = resolveWalletBalance(
+      initialCashBalance,
+      sorted.map(hydrateTradeFees),
+      financialEvents,
+    );
+    if (wallet < -0.000_001) {
       throw new LedgerIntegrityError(
-        `Ledger cash invariant violated: balance ${cash.toFixed(4)} < 0`,
+        `Ledger wallet invariant violated: balance ${wallet.toFixed(4)} < 0`,
       );
     }
   }

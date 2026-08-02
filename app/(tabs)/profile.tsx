@@ -10,7 +10,6 @@ import {
   View,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as WebBrowser from "expo-web-browser";
 
 import { AccountHeader } from "@/components/account/AccountHeader";
@@ -19,6 +18,11 @@ import { AccountSection } from "@/components/account/AccountSection";
 import { LogoutButton } from "@/components/account/LogoutButton";
 import { SubscriptionCard } from "@/components/account/SubscriptionCard";
 import { useColors } from "@/hooks/useColors";
+import {
+  getTabScrollViewStyle,
+  TAB_SCROLL_VIEW_PROPS,
+  useTabScreenScrollInsets,
+} from "@/hooks/useTabScreenScrollInsets";
 import { buildAccountScreenModel } from "@/lib/account/accountScreenModel";
 import {
   APP_VERSION,
@@ -71,15 +75,12 @@ function PreferenceToggleRow({
 
 export default function ProfileScreen() {
   const colors = useColors();
-  const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { bottomPad, contentPaddingTop } = useTabScreenScrollInsets();
   const { status, user, access, saasDisabled, isAuthenticated, hydrationError } = useAuth();
 
   const [preferences, setPreferences] = useState<AccountPreferences | null>(null);
   const [prefsLoading, setPrefsLoading] = useState(true);
-
-  const topPad = Platform.OS === "web" ? 67 : insets.top;
-  const bottomPad = Platform.OS === "web" ? 34 + 84 : insets.bottom + 84;
 
   useEffect(() => {
     let active = true;
@@ -145,13 +146,13 @@ export default function ProfileScreen() {
 
   return (
     <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]}
+      style={getTabScrollViewStyle(colors.background)}
       contentContainerStyle={{
-        paddingTop: topPad + 16,
+        paddingTop: contentPaddingTop,
         paddingBottom: bottomPad,
         paddingHorizontal: 16,
       }}
-      showsVerticalScrollIndicator={false}
+      {...TAB_SCROLL_VIEW_PROPS}
     >
       <Text style={[styles.screenTitle, { color: colors.foreground }]}>Cuenta</Text>
 

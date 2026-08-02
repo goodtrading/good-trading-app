@@ -2,6 +2,7 @@ import { describe, expect, it, beforeEach } from "vitest";
 
 import { PaperBroker } from "@/lib/portfolio/brokers/PaperBroker";
 import { PORTFOLIO_V1_SYMBOL } from "@/lib/portfolio/constants";
+import { closeFee, openFee } from "@/lib/portfolio/fees/__tests__/feeTestHelpers";
 import { buildPosition } from "@/lib/portfolio/positionEngine";
 import { createPortfolioEngine } from "@/lib/portfolio/portfolioEngine";
 import {
@@ -9,7 +10,7 @@ import {
   MemoryPortfolioStorage,
 } from "@/lib/portfolio/storage/portfolioStorage";
 
-describe("Portfolio Engine V1", () => {
+describe("Portfolio Engine V1 (Futures)", () => {
   let storage: MemoryPortfolioStorage;
   let engine: ReturnType<typeof createPortfolioEngine>;
 
@@ -18,13 +19,15 @@ describe("Portfolio Engine V1", () => {
     engine = createPortfolioEngine(storage, new PaperBroker());
   });
 
-  it("1 — BUY 1 BTC @ 60k → quantity = 1, avgEntry = 60k", async () => {
+  it("1 — BUY 1 BTC @ 60k locks margin only (not full notional)", async () => {
     const state = await engine.buy(1, 60_000, 60_000);
     const btc = buildPosition(state.trades, 60_000);
 
     expect(btc?.quantity).toBe(1);
     expect(btc?.avgEntry).toBe(60_000);
-    expect(state.portfolio.cashBalance).toBe(500_000 - 60_000);
+    expect(state.portfolio.walletBalance).toBeCloseTo(500_000 - openFee(1, 60_000), 4);
+    expect(state.portfolio.marginUsed).toBe(60_000);
+    expect(state.portfolio.cashBalance).toBeCloseTo(500_000 - openFee(1, 60_000) - 60_000, 4);
     expect(state.trades).toHaveLength(1);
     expect(state.trades[0]?.symbol).toBe(PORTFOLIO_V1_SYMBOL);
   });
@@ -47,31 +50,40 @@ describe("Portfolio Engine V1", () => {
     expect(btc?.avgEntry).toBe(60_000);
     expect(btc?.realizedPnL).toBe(10_000);
     expect(state.portfolio.realizedPnL).toBe(10_000);
+    expect(state.portfolio.walletBalance).toBeCloseTo(
+      500_000 + 10_000 - openFee(2, 60_000) - closeFee(1, 70_000),
+      4,
+    );
   });
 
   it("4 — portfolio is recalculated after each trade", async () => {
     const afterBuy = await engine.buy(1, 60_000, 62_000);
-    expect(afterBuy.portfolio.equity).toBe(
-      afterBuy.portfolio.cashBalance + 1 * 62_000,
-    );
+    const open = openFee(1, 60_000);
+    expect(afterBuy.portfolio.walletBalance).toBeCloseTo(500_000 - open, 4);
     expect(afterBuy.portfolio.unrealizedPnL).toBe(2_000);
+    expect(afterBuy.portfolio.equity).toBeCloseTo(500_000 - open + 2_000, 4);
+    expect(afterBuy.portfolio.cashBalance).toBeCloseTo(500_000 - open - 60_000 + 2_000, 4);
 
     const afterSell = await engine.sell(0.5, 64_000, 64_000);
     expect(afterSell.trades).toHaveLength(2);
-    expect(afterSell.portfolio.cashBalance).toBeGreaterThan(afterBuy.portfolio.cashBalance);
+    expect(afterSell.portfolio.walletBalance).toBeCloseTo(
+      500_000 + 2_000 - open - closeFee(0.5, 64_000),
+      4,
+    );
     expect(afterSell.portfolio.realizedPnL).toBe(2_000);
+    expect(afterSell.portfolio.cashBalance).toBeGreaterThan(afterBuy.portfolio.cashBalance);
   });
 
-  it("rejects sells beyond open long quantity (no shorts in V1)", async () => {
+  it("rejects sells beyond open long quantity (no shorts in LONG_ONLY)", async () => {
     await engine.buy(1, 60_000, 60_000);
     await expect(engine.sell(2, 65_000, 65_000)).rejects.toThrow(/Insufficient position/);
   });
 
-  it("rejects buys beyond available cash", async () => {
+  it("rejects opens beyond available margin", async () => {
     await expect(engine.buy(10, 60_000, 60_000)).rejects.toThrow(/Insufficient cash/);
   });
 
-  it("derives cash only from initial balance + trades", async () => {
+  it("derives wallet from initial balance + realized PnL − fees", async () => {
     await engine.buy(1, 60_000, 60_000);
     const persisted = await storage.load();
 
@@ -80,7 +92,8 @@ describe("Portfolio Engine V1", () => {
     expect(persisted.fills).toEqual([]);
 
     const state = await engine.getState(60_000);
-    expect(state.portfolio.cashBalance).toBe(500_000 - 60_000);
+    expect(state.portfolio.walletBalance).toBeCloseTo(500_000 - openFee(1, 60_000), 4);
+    expect(state.portfolio.cashBalance).toBeCloseTo(500_000 - openFee(1, 60_000) - 60_000, 4);
   });
 });
 
@@ -100,6 +113,7 @@ describe("positionEngine", () => {
 
     const position = buildPosition(trades, 65_000);
     expect(position?.unrealizedPnL).toBe(5_000);
+    expect(position?.entryMargin).toBe(60_000);
   });
 });
 

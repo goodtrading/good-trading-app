@@ -11,6 +11,11 @@ import {
   MemoryPortfolioStorage,
 } from "@/lib/portfolio/storage/portfolioStorage";
 import type { PortfolioStorage } from "@/lib/portfolio/storage/portfolioStorage";
+import { resolveWalletBalance } from "@/lib/portfolio/fees/resolveWalletBalance";
+import { resolveWalletCash } from "@/lib/portfolio/futures/futuresAccounting";
+import { createTradeFeeEvent } from "@/lib/portfolio/financial/tradeFeeToEvent";
+import { FinancialEventLedger } from "@/lib/portfolio/financial/FinancialEventLedger";
+import type { FinancialEvent } from "@/lib/portfolio/financial/types";
 import type { PortfolioPersistedState, Trade } from "@/lib/portfolio/types";
 
 export class LedgerTransactionError extends Error {
@@ -35,6 +40,7 @@ export class LedgerMutationForbiddenError extends Error {
  */
 export class LedgerTransaction {
   private readonly pendingTrades: Trade[] = [];
+  private readonly pendingEvents: FinancialEvent[] = [];
   private finished = false;
 
   private constructor(
@@ -44,7 +50,7 @@ export class LedgerTransaction {
 
   static async begin(storage: PortfolioStorage): Promise<LedgerTransaction> {
     const baseState = await storage.load();
-    assertLedgerIntegrity(baseState.trades, baseState.initialCashBalance);
+    assertLedgerIntegrity(baseState.trades, resolveWalletCash(baseState), baseState.financialEvents);
     return new LedgerTransaction(storage, baseState);
   }
 
@@ -58,6 +64,11 @@ export class LedgerTransaction {
     return this.pendingTrades;
   }
 
+  get pendingFinancialEvents(): readonly FinancialEvent[] {
+    this.assertOpen();
+    return this.pendingEvents;
+  }
+
   workingTrades(): Trade[] {
     this.assertOpen();
     return [...this.baseState.trades, ...this.pendingTrades];
@@ -66,7 +77,30 @@ export class LedgerTransaction {
   appendTrade(trade: Trade): void {
     this.assertOpen();
     validateLedgerEntry(trade);
+
+    const existsInBase = this.baseState.trades.some((entry) => entry.id === trade.id);
+    const existsInPending = this.pendingTrades.some((entry) => entry.id === trade.id);
+    if (existsInBase || existsInPending) {
+      console.log("[DUPLICATE TRADE BLOCKED]", { tradeId: trade.id });
+      throw new LedgerTransactionError(`Duplicate trade id blocked: ${trade.id}`);
+    }
+
     this.pendingTrades.push(trade);
+
+    const feeEvent = createTradeFeeEvent(trade);
+    if (feeEvent) {
+      this.pendingEvents.push(feeEvent);
+    }
+  }
+
+  appendFinancialEvent(event: FinancialEvent): void {
+    this.assertOpen();
+    const ledger = FinancialEventLedger.fromPersisted([
+      ...(this.baseState.financialEvents ?? []),
+      ...this.pendingEvents,
+    ]);
+    ledger.appendEvent(event);
+    this.pendingEvents.push(event);
   }
 
   async commit(): Promise<PortfolioPersistedState> {
@@ -74,10 +108,19 @@ export class LedgerTransaction {
 
     const nextState: PortfolioPersistedState = {
       ...this.baseState,
+      walletCash: resolveWalletCash(this.baseState),
       trades: [...this.baseState.trades, ...this.pendingTrades],
+      financialEvents: [
+        ...(this.baseState.financialEvents ?? []),
+        ...this.pendingEvents,
+      ],
     };
 
-    assertLedgerIntegrity(nextState.trades, nextState.initialCashBalance);
+    assertLedgerIntegrity(
+      nextState.trades,
+      resolveWalletCash(nextState),
+      nextState.financialEvents,
+    );
     await runWithinLedgerCommit(async () => {
       await this.storage.save(nextState);
     });
@@ -89,6 +132,7 @@ export class LedgerTransaction {
   rollback(): void {
     if (this.finished) return;
     this.pendingTrades.length = 0;
+    this.pendingEvents.length = 0;
     this.finished = true;
   }
 
@@ -134,7 +178,7 @@ export async function commitGenesisLedger(
   }
 
   const genesisState = createEmptyPersistedState(initialCashBalance);
-  assertLedgerIntegrity(genesisState.trades, genesisState.initialCashBalance);
+  assertLedgerIntegrity(genesisState.trades, resolveWalletCash(genesisState), genesisState.financialEvents);
 
   await runWithinLedgerCommit(async () => {
     await storage.save(genesisState);
@@ -148,7 +192,7 @@ export function rejectLedgerReset(): never {
 }
 
 export function assertPersistedLedgerIntegrity(state: PortfolioPersistedState): void {
-  assertLedgerIntegrity(state.trades, state.initialCashBalance);
+  assertLedgerIntegrity(state.trades, state.initialCashBalance, state.financialEvents);
 }
 
 export function rejectLedgerMutation(operation: string): never {

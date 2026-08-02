@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useRef } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
 
+import { MarketTickPublisher } from "@/components/market/MarketTickPublisher";
+import { PortfolioRuntimeHost } from "@/components/cartera/PortfolioRuntimeHost";
 import { InventoryContextView } from "@/components/cartera/views/InventoryContextView";
 import { PortfolioContextView } from "@/components/cartera/views/PortfolioContextView";
 import { TradingContextView } from "@/components/cartera/views/TradingContextView";
-import { useLiveSpotPrices } from "@/hooks/useLiveSpotPrices";
 import { useColors } from "@/hooks/useColors";
 import {
   getTabScrollViewStyle,
@@ -26,7 +27,6 @@ import type { CarteraContext } from "@/lib/cartera/types";
 export function CarteraRoot() {
   const colors = useColors();
   const { bottomPad, contentPaddingTop } = useTabScreenScrollInsets();
-  const spotFeed = useLiveSpotPrices();
   const { context: activeContext, isHydrated } = useCarteraTabShell();
 
   const scrollRef = useRef<ScrollView>(null);
@@ -81,14 +81,11 @@ export function CarteraRoot() {
       {...TAB_SCROLL_VIEW_PROPS}
     >
       <View style={styles.contextPane}>
+        <MarketTickPublisher />
         {activeContext === "TRADING" ? (
           <TradingContextProvider>
-            <TradingContextView
-              btcPrice={spotFeed.btcPrice}
-              ethPrice={spotFeed.ethPrice}
-              isLive={spotFeed.isLive}
-              isPriceLoading={spotFeed.isLoading}
-            />
+            <PortfolioRuntimeHost />
+            <TradingContextView />
           </TradingContextProvider>
         ) : null}
 
@@ -99,7 +96,7 @@ export function CarteraRoot() {
         ) : null}
 
         {activeContext === "PORTFOLIO" ? (
-          <PortfolioContextProvider marketPrice={spotFeed.btcPrice}>
+          <PortfolioContextProvider>
             <PortfolioContextView />
           </PortfolioContextProvider>
         ) : null}

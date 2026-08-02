@@ -20,8 +20,6 @@ import {
   type CarteraContext,
 } from "@/lib/cartera/types";
 
-const SWITCHER_INACTIVITY_MS = 10_000;
-
 type CarteraTabPressEvent = {
   preventDefault: () => void;
 };
@@ -32,11 +30,13 @@ type CarteraTabShellContextValue = {
   isHydrated: boolean;
   isOnCarteraTab: boolean;
   setContext: (context: CarteraContext) => void;
-  handleCarteraTabPress: (isAlreadyOnCartera: boolean, event?: CarteraTabPressEvent) => void;
-  closeSwitcher: () => void;
+  handleCarteraTabPress: (event: CarteraTabPressEvent) => void;
 };
 
 const CarteraTabShellContext = createContext<CarteraTabShellContextValue | null>(null);
+
+/** Auto-close switcher when no option is selected. */
+const SWITCHER_INACTIVITY_MS = 3_000;
 
 function isCarteraPath(pathname: string): boolean {
   return pathname.includes("/learn") || pathname.endsWith("learn");
@@ -60,7 +60,7 @@ export function CarteraTabShellProvider({ children }: { children: ReactNode }) {
   const inactivityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const clearInactivityTimer = useCallback(() => {
-    if (inactivityTimerRef.current) {
+    if (inactivityTimerRef.current != null) {
       clearTimeout(inactivityTimerRef.current);
       inactivityTimerRef.current = null;
     }
@@ -73,6 +73,10 @@ export function CarteraTabShellProvider({ children }: { children: ReactNode }) {
 
   const openSwitcher = useCallback(() => {
     setIsSwitcherOpen(true);
+  }, []);
+
+  const toggleSwitcher = useCallback(() => {
+    setIsSwitcherOpen((open) => !open);
   }, []);
 
   useEffect(() => {
@@ -91,21 +95,22 @@ export function CarteraTabShellProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!isHydrated) return;
-    if (!isOnCarteraTab) {
+
+    if (isOnCarteraTab) {
+      openSwitcher();
+    } else {
       closeSwitcher();
     }
-  }, [closeSwitcher, isHydrated, isOnCarteraTab]);
+  }, [closeSwitcher, isHydrated, isOnCarteraTab, openSwitcher]);
 
+  // Start / reset inactivity timer only while the switcher is open.
   useEffect(() => {
-    if (!isSwitcherOpen) {
-      clearInactivityTimer();
-      return;
-    }
-
     clearInactivityTimer();
+    if (!isSwitcherOpen) return;
+
     inactivityTimerRef.current = setTimeout(() => {
-      setIsSwitcherOpen(false);
       inactivityTimerRef.current = null;
+      setIsSwitcherOpen(false);
     }, SWITCHER_INACTIVITY_MS);
 
     return clearInactivityTimer;
@@ -122,16 +127,12 @@ export function CarteraTabShellProvider({ children }: { children: ReactNode }) {
   );
 
   const handleCarteraTabPress = useCallback(
-    (isAlreadyOnCartera: boolean, event?: CarteraTabPressEvent) => {
-      if (isAlreadyOnCartera) {
-        event?.preventDefault();
-        setIsSwitcherOpen((open) => !open);
-        return;
-      }
-
-      openSwitcher();
+    (event: CarteraTabPressEvent) => {
+      if (!isOnCarteraTab) return;
+      event.preventDefault();
+      toggleSwitcher();
     },
-    [openSwitcher],
+    [isOnCarteraTab, toggleSwitcher],
   );
 
   const value = useMemo<CarteraTabShellContextValue>(
@@ -142,17 +143,8 @@ export function CarteraTabShellProvider({ children }: { children: ReactNode }) {
       isOnCarteraTab,
       setContext,
       handleCarteraTabPress,
-      closeSwitcher,
     }),
-    [
-      closeSwitcher,
-      context,
-      handleCarteraTabPress,
-      isHydrated,
-      isOnCarteraTab,
-      isSwitcherOpen,
-      setContext,
-    ],
+    [context, handleCarteraTabPress, isHydrated, isOnCarteraTab, isSwitcherOpen, setContext],
   );
 
   return (

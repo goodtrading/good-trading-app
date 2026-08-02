@@ -12,8 +12,8 @@ import { selectKeyZonesForScope } from "@/lib/market-state/keyZoneSelectors";
 import { mapKeyZonesFromMacro, mapKeyZonesFromMicro } from "@/lib/market-state/v2UiMappers";
 
 const legacyFallback = [
-  { label: "CALL WALL", price: "$88,000", type: "resistance" as const, distance: "—" },
-  { label: "PUT WALL", price: "$80,000", type: "support" as const, distance: "—" },
+  { label: "Call Wall", price: "$88,000", type: "resistance" as const, distance: "—" },
+  { label: "Put Wall", price: "$80,000", type: "support" as const, distance: "—" },
 ];
 
 describe("key zones pipeline audit", () => {
@@ -30,12 +30,12 @@ describe("key zones pipeline audit", () => {
     expect(microZones[0]?.label).toBe("Local Flip");
     expect(microZones.some((z) => z.label.toUpperCase().includes("TRANSITION"))).toBe(false);
     expect(macroZones[0]?.label).toBe("Global Flip");
-    expect(macroZones.some((z) => z.label === "DEALER PIVOT")).toBe(true);
+    expect(macroZones.some((z) => z.label === "Dealer Pivot")).toBe(true);
   });
 
   it("legacy fallback is exactly Call Wall + Put Wall (matches app symptom)", () => {
     expect(legacyFallback).toHaveLength(2);
-    expect(legacyFallback.map((z) => z.label)).toEqual(["CALL WALL", "PUT WALL"]);
+    expect(legacyFallback.map((z) => z.label)).toEqual(["Call Wall", "Put Wall"]);
   });
 
   it("useStableKeyZones legacy branch reproduces app output", () => {
@@ -51,7 +51,7 @@ describe("key zones pipeline audit", () => {
 
     expect(branch.branch).toBe("legacy-fallback");
     expect(branch.zones).toHaveLength(2);
-    expect(branch.zones.map((z) => z.label)).toEqual(["CALL WALL", "PUT WALL"]);
+    expect(branch.zones.map((z) => z.label)).toEqual(["Call Wall", "Put Wall"]);
   });
 
   it("stale-cache branch can mask v2 when enabled but context missing", () => {
@@ -66,7 +66,7 @@ describe("key zones pipeline audit", () => {
     });
 
     expect(branch.branch).toBe("stale-cache-while-v2-context-missing");
-    expect(branch.zones.map((z) => z.label)).toEqual(["CALL WALL", "PUT WALL"]);
+    expect(branch.zones.map((z) => z.label)).toEqual(["Call Wall", "Put Wall"]);
   });
 
   it("v2 branch emits Global Flip and Dealer Pivot for Macro", () => {
@@ -82,8 +82,8 @@ describe("key zones pipeline audit", () => {
 
     expect(branch.branch).toBe("v2-selector");
     expect(branch.zones[0]?.label).toBe("Global Flip");
-    expect(branch.zones.some((z) => z.label === "DEALER PIVOT")).toBe(true);
-    expect(branch.zones.some((z) => z.label === "CALL WALL")).toBe(true);
+    expect(branch.zones.some((z) => z.label === "Dealer Pivot")).toBe(true);
+    expect(branch.zones.some((z) => z.label === "Call Wall")).toBe(true);
   });
 
   it("sanitized real fixture parses and maps all flip fields", () => {

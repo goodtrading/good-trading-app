@@ -1,14 +1,12 @@
 import { useRouter, type Href } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 
 import { WatchlistItem } from "@/components/WatchlistItem";
@@ -17,6 +15,11 @@ import { WatchlistEmptyState } from "@/components/watchlist/WatchlistEmptyState"
 import { WatchlistSearchSheet } from "@/components/watchlist/WatchlistSearchSheet";
 import { useWatchlistMarketQuotes } from "@/hooks/useWatchlistMarketQuotes";
 import { useColors } from "@/hooks/useColors";
+import {
+  getTabScrollViewStyle,
+  TAB_SCROLL_VIEW_PROPS,
+  useTabScreenScrollInsets,
+} from "@/hooks/useTabScreenScrollInsets";
 import { useActiveAsset } from "@/lib/assets";
 import { canSelectAsset } from "@/lib/assets/assetCatalog";
 import type { TradingAsset, WatchlistAsset } from "@/lib/assets/types";
@@ -69,8 +72,8 @@ function logWatchlistMenu(action: WatchlistAction, symbol: string) {
 
 export default function WatchlistScreen() {
   const colors = useColors();
-  const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { bottomPad, contentPaddingTop } = useTabScreenScrollInsets();
   const { activeAsset, setActiveAsset, catalog } = useActiveAsset();
   const { followedSymbols, favoriteSymbols, ensureFollowed, toggleFavorite } = useWatchlist();
   const quotes = useWatchlistMarketQuotes(followedSymbols);
@@ -78,9 +81,6 @@ export default function WatchlistScreen() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [menuSymbol, setMenuSymbol] = useState<TradingAsset | null>(null);
   const [blockedMessage, setBlockedMessage] = useState<string | null>(null);
-
-  const topPad = Platform.OS === "web" ? 67 : insets.top;
-  const bottomPad = Platform.OS === "web" ? 34 + 84 : insets.bottom + 84;
 
   const visibleAssets = useMemo(() => {
     const assets = buildWatchlistAssets({ followedSymbols, quotes });
@@ -170,13 +170,13 @@ export default function WatchlistScreen() {
   return (
     <>
       <ScrollView
-        style={[styles.container, { backgroundColor: colors.background }]}
+        style={getTabScrollViewStyle(colors.background)}
         contentContainerStyle={{
-          paddingTop: topPad + 16,
+          paddingTop: contentPaddingTop,
           paddingBottom: bottomPad,
           paddingHorizontal: 16,
         }}
-        showsVerticalScrollIndicator={false}
+        {...TAB_SCROLL_VIEW_PROPS}
       >
         <View style={styles.header}>
           <Text style={[styles.title, { color: colors.foreground }]}>WatchList</Text>

@@ -9,8 +9,10 @@ import React, {
   type ReactNode,
 } from "react";
 
-import { loadPortfolioReadModel, PortfolioReadModelService } from "@/lib/cartera/read/portfolioReadModelService";
+import { loadPortfolioReadModel } from "@/lib/cartera/read/portfolioReadModelService";
 import type { PortfolioReadModel } from "@/lib/cartera/read/types";
+import { PORTFOLIO_V1_SYMBOL } from "@/lib/portfolio/constants";
+import { marketTickStore } from "@/lib/market/MarketTickStore";
 
 export type PortfolioReadContextValue = {
   wealth: PortfolioReadModel | null;
@@ -23,14 +25,13 @@ const PortfolioBoundaryContext = createContext<PortfolioReadContextValue | null>
 
 type PortfolioContextProviderProps = {
   children: ReactNode;
-  marketPrice: number | null;
 };
 
 /**
  * READ-ONLY context — analytics and aggregation only.
- * Exposes no write APIs. Loads via domain read service.
+ * Loads on refresh / first mark — not on every tick.
  */
-export function PortfolioContextProvider({ children, marketPrice }: PortfolioContextProviderProps) {
+export function PortfolioContextProvider({ children }: PortfolioContextProviderProps) {
   const [wealth, setWealth] = useState<PortfolioReadModel | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -44,14 +45,8 @@ export function PortfolioContextProvider({ children, marketPrice }: PortfolioCon
   }, []);
 
   useEffect(() => {
-    if (marketPrice == null) {
-      setWealth(null);
-      setIsLoading(false);
-      setError(null);
-      return;
-    }
-
     let active = true;
+    let loaded = false;
     const isInitialLoad = wealthRef.current === null;
 
     if (isInitialLoad) {
@@ -59,29 +54,52 @@ export function PortfolioContextProvider({ children, marketPrice }: PortfolioCon
       setError(null);
     }
 
-    void loadPortfolioReadModel(marketPrice)
-      .then((next) => {
-        if (!active) return;
-        setWealth(next);
-        setError(null);
-      })
-      .catch((err: unknown) => {
-        if (!active) return;
+    const load = (price: number) => {
+      void loadPortfolioReadModel(price)
+        .then((next) => {
+          if (!active) return;
+          setWealth(next);
+          setError(null);
+          loaded = true;
+        })
+        .catch((err: unknown) => {
+          if (!active) return;
+          if (wealthRef.current === null) {
+            setWealth(null);
+            setError(err instanceof Error ? err.message : "No se pudo consolidar el patrimonio");
+          }
+        })
+        .finally(() => {
+          if (active && isInitialLoad) {
+            setIsLoading(false);
+          }
+        });
+    };
+
+    const tryLoad = () => {
+      const price = marketTickStore.getPrice(PORTFOLIO_V1_SYMBOL);
+      if (price == null) {
         if (wealthRef.current === null) {
           setWealth(null);
-          setError(err instanceof Error ? err.message : "No se pudo consolidar el patrimonio");
-        }
-      })
-      .finally(() => {
-        if (active && isInitialLoad) {
           setIsLoading(false);
         }
-      });
+        return;
+      }
+      load(price);
+    };
+
+    tryLoad();
+
+    const unsub = marketTickStore.subscribe(() => {
+      if (loaded) return;
+      tryLoad();
+    });
 
     return () => {
       active = false;
+      unsub();
     };
-  }, [marketPrice, refreshKey]);
+  }, [refreshKey]);
 
   const value = useMemo<PortfolioReadContextValue>(
     () => ({

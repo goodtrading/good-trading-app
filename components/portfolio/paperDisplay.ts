@@ -1,4 +1,5 @@
 import type { Position } from "@/lib/portfolio/types";
+import { formatMoney } from "@/lib/portfolio/accounts/format";
 
 export type PaperDisplayCurrency = "USDT" | "BTC" | "ETH";
 
@@ -31,10 +32,7 @@ export function formatPaperCurrencyAmount(
   const converted = convertUsdToPaperCurrency(usdValue, currency, rates);
 
   if (currency === "USDT") {
-    return `${converted.toLocaleString("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })} USDT`;
+    return `${formatMoney(converted)} USDT`;
   }
 
   if (currency === "BTC") {
@@ -57,7 +55,13 @@ export function formatPaperPnlPercent(value: number): string {
 }
 
 export function computePositionReturnPercent(position: Position): number {
-  const costBasis = position.quantity * position.avgEntry;
+  if (position.roiPercent != null && Number.isFinite(position.roiPercent)) {
+    return Number(position.roiPercent.toFixed(2));
+  }
+  if (position.entryMargin > 0) {
+    return Number(((position.unrealizedPnL / position.entryMargin) * 100).toFixed(2));
+  }
+  const costBasis = Math.abs(position.quantity * position.avgEntry);
   if (costBasis <= 0) return 0;
   return Number(((position.unrealizedPnL / costBasis) * 100).toFixed(2));
 }

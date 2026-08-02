@@ -5,28 +5,28 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Platform,
   ActivityIndicator,
   RefreshControl,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { useGetAlerts, getGetAlertsQueryKey } from "@/lib/api-client";
 import { useQueryClient } from "@tanstack/react-query";
 import { useColors } from "@/hooks/useColors";
+import {
+  getTabScrollViewStyle,
+  TAB_SCROLL_VIEW_PROPS,
+  useTabScreenScrollInsets,
+} from "@/hooks/useTabScreenScrollInsets";
 import { AlertItem } from "@/components/AlertItem";
 
 type FilterType = "all" | "active" | "executed";
 
 export default function AlertsScreen() {
   const colors = useColors();
-  const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+  const { bottomPad, contentPaddingTop } = useTabScreenScrollInsets();
   const [filter, setFilter] = useState<FilterType>("all");
   const [refreshing, setRefreshing] = useState(false);
-
-  const topPad = Platform.OS === "web" ? 67 : insets.top;
-  const bottomPad = Platform.OS === "web" ? 34 + 84 : insets.bottom + 84;
 
   const params = filter !== "all" ? { status: filter as "active" | "executed" } : {};
 
@@ -50,9 +50,13 @@ export default function AlertsScreen() {
 
   return (
     <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]}
-      contentContainerStyle={{ paddingTop: topPad + 16, paddingBottom: bottomPad, paddingHorizontal: 16 }}
-      showsVerticalScrollIndicator={false}
+      style={getTabScrollViewStyle(colors.background)}
+      contentContainerStyle={{
+        paddingTop: contentPaddingTop,
+        paddingBottom: bottomPad,
+        paddingHorizontal: 16,
+      }}
+      {...TAB_SCROLL_VIEW_PROPS}
       refreshControl={
         <RefreshControl
           refreshing={refreshing}

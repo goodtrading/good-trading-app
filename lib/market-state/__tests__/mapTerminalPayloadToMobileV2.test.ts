@@ -14,9 +14,12 @@ import { parseMobileMarketStateV2Snapshot } from "@/lib/market-state/parseV2Snap
 import {
   KEY_ZONE_GROUP_NEARBY_MAGNET,
   KEY_ZONE_GROUP_SHORT_GAMMA_POCKET,
-  KEY_ZONE_GROUP_STRUCTURAL_MAGNET,
+  KEY_ZONE_LABEL_CALL_WALL,
+  KEY_ZONE_LABEL_DEALER_PIVOT,
   KEY_ZONE_LABEL_GLOBAL_FLIP,
   KEY_ZONE_LABEL_LOCAL_FLIP,
+  KEY_ZONE_LABEL_PUT_WALL,
+  KEY_ZONE_ROW_STRUCTURAL_MAGNET,
   mapKeyZonesFromMacro,
   mapKeyZonesFromMicro,
 } from "@/lib/market-state/v2UiMappers";
@@ -110,10 +113,10 @@ describe("mapTerminalPayloadToMobileV2", () => {
     ]);
     expect(macroZones).toEqual([
       KEY_ZONE_LABEL_GLOBAL_FLIP,
-      "CALL WALL",
-      "PUT WALL",
-      "DEALER PIVOT",
-      KEY_ZONE_GROUP_STRUCTURAL_MAGNET,
+      KEY_ZONE_LABEL_CALL_WALL,
+      KEY_ZONE_LABEL_PUT_WALL,
+      KEY_ZONE_LABEL_DEALER_PIVOT,
+      KEY_ZONE_ROW_STRUCTURAL_MAGNET,
       KEY_ZONE_GROUP_SHORT_GAMMA_POCKET,
     ]);
     expect(microZones.length).toBe(3);

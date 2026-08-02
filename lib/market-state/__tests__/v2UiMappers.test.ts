@@ -72,8 +72,8 @@ describe("v2UiMappers", () => {
 
   it("28. Macro shows structural walls", () => {
     const zones = mapKeyZonesFromMacro(snapshot.data.macro, spot);
-    expect(zones.some((z) => z.label === "CALL WALL")).toBe(true);
-    expect(zones.some((z) => z.label === "PUT WALL")).toBe(true);
+    expect(zones.some((z) => z.label === "Call Wall")).toBe(true);
+    expect(zones.some((z) => z.label === "Put Wall")).toBe(true);
   });
 
   it("29. Pockets are grouped into one expandable row", () => {
@@ -100,7 +100,7 @@ describe("v2UiMappers", () => {
   it("31. No local/global mix in micro zones", () => {
     const zones = mapKeyZonesFromMicro(snapshot.data.micro, spot);
     expect(zones.some((z) => z.label === "Global Flip")).toBe(false);
-    expect(zones.some((z) => z.label === "CALL WALL")).toBe(false);
+    expect(zones.some((z) => z.label === "Call Wall")).toBe(false);
   });
 
   it("relationship maps descriptionCode to readable text", () => {

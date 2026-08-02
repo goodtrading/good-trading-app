@@ -1,84 +1,149 @@
 import React from "react";
+
 import { View, Text, StyleSheet } from "react-native";
+
+import { editorial } from "@/constants/editorial";
+
+import { EditorialSectionTitle } from "@/components/EditorialSectionTitle";
+
 import { useColors } from "@/hooks/useColors";
 
+
+
 interface ScenarioCardProps {
+
   title: string;
+
   label?: string;
+
   description: string;
+
   probability: number;
+
 }
+
+
+
+function formatSectionTitle(_label?: string): string {
+  return "Escenario";
+}
+
+
+
+function hasUsefulProbability(probability: number): boolean {
+
+  return Number.isFinite(probability) && probability > 0 && probability <= 100;
+
+}
+
+
 
 export function ScenarioCard({
+
   title,
+
   label,
+
   description,
+
   probability,
+
 }: ScenarioCardProps) {
+
   const colors = useColors();
 
+  const sectionTitle = formatSectionTitle(label);
+
+  const body = description.trim() || title.trim();
+
+  // probability mirrors bias.confidence from index — already rendered in CommandBlock
+
+  // as "Confidence". Omitting here avoids duplicate signal; prop kept for API stability.
+
+  const showProbability = false;
+
+
+
   return (
-    <View style={[styles.container, { backgroundColor: colors.card, borderColor: colors.border }]}>
-      <View style={styles.header}>
-        <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>ESCENARIO PROBABLE</Text>
-      </View>
 
-      {label && <Text style={[styles.label, { color: colors.primary }]}>{label}</Text>}
-      <Text style={[styles.title, { color: colors.primary }]}>{title}</Text>
+    <View style={styles.section}>
 
-      <Text style={[styles.description, { color: colors.secondaryForeground }]}>{description}</Text>
+      <EditorialSectionTitle>{sectionTitle}</EditorialSectionTitle>
+
+
+
+      {showProbability && hasUsefulProbability(probability) ? (
+
+        <Text style={[styles.confidence, { color: colors.mutedForeground }]}>
+
+          {Math.round(probability)}% confidence
+
+        </Text>
+
+      ) : null}
+
+
+
+      {body ? (
+
+        <Text style={[styles.body, styles.bodyNeutral, { color: colors.mutedForeground }]}>{body}</Text>
+
+      ) : (
+
+        <Text style={[styles.body, { color: colors.mutedForeground }]}>Sin escenario disponible</Text>
+
+      )}
+
     </View>
+
   );
+
 }
 
+
+
 const styles = StyleSheet.create({
-  container: {
-    borderRadius: 4,
-    borderWidth: 1,
-    padding: 20,
-    marginBottom: 12,
-    flex: 0,
-    height: "auto",
+
+  section: {
+
+    gap: 2,
+
   },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  sectionLabel: {
-    fontSize: 10,
-    fontFamily: "Inter_600SemiBold",
-    letterSpacing: 1.5,
-  },
-  probBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 2,
-  },
-  probText: {
-    color: "#ffffff",
-    fontSize: 10,
-    fontFamily: "Inter_700Bold",
-    letterSpacing: 1,
-  },
-  label: {
-    fontSize: 9,
-    fontFamily: "Inter_600SemiBold",
-    letterSpacing: 1.5,
-    marginBottom: 6,
-  },
-  title: {
-    fontSize: 16,
-    fontFamily: "Inter_700Bold",
-    letterSpacing: 1,
-    marginBottom: 14,
-    lineHeight: 24,
-  },
-  description: {
-    fontSize: 13,
+
+  confidence: {
+
+    fontSize: editorial.metaSize,
+
     fontFamily: "Inter_400Regular",
-    lineHeight: 20,
-    marginBottom: 14,
+
+    letterSpacing: 0.3,
+
   },
+
+  body: {
+
+    fontSize: editorial.bodySize - 2,
+
+    fontFamily: "Inter_400Regular",
+
+    lineHeight: 20,
+
+    letterSpacing: 0.2,
+
+  },
+
+  bodyNeutral: {
+
+    fontSize: Math.round(editorial.bodySize * 0.7),
+
+    fontFamily: "Inter_400Regular",
+
+    lineHeight: Math.round(20 * 0.7),
+
+    letterSpacing: 0.2,
+
+  },
+
 });
+
+

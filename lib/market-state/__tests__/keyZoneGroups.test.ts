@@ -6,7 +6,7 @@ import {
   mapKeyZonesFromMacro,
   mapKeyZonesFromMicro,
   KEY_ZONE_GROUP_SHORT_GAMMA_POCKET,
-  KEY_ZONE_GROUP_STRUCTURAL_MAGNET,
+  KEY_ZONE_ROW_STRUCTURAL_MAGNET,
 } from "@/lib/market-state/v2UiMappers";
 import { createBothModeEnvelopeFixture } from "./fixtures";
 
@@ -26,17 +26,18 @@ describe("key zone groups", () => {
     };
 
     const zones = mapKeyZonesFromMacro(macro, spot);
-    const magnetZone = zones.find((zone) => zone.label === KEY_ZONE_GROUP_STRUCTURAL_MAGNET);
+    const magnetZone = zones.find((zone) => zone.label === KEY_ZONE_ROW_STRUCTURAL_MAGNET);
 
     expect(magnetZone?.price).toBe("$66,200");
     expect(magnetZone?.moreCount).toBe(2);
-    expect(keyZoneMoreLabel(magnetZone!)).toBe("+2 más");
+    expect(keyZoneMoreLabel(magnetZone!)).toBe("3 niveles disponibles");
     expect(isKeyZoneExpandable(magnetZone!)).toBe(true);
-    expect(magnetZone?.modalTitle).toBe("STRUCTURAL MAGNETS");
+    expect(magnetZone?.modalTitle).toBe("Structural Magnet");
+    expect(magnetZone?.barColor).toBe("#3b82f6");
     expect(magnetZone?.items).toEqual([
-      { id: "structural-magnets-magnet-0", label: "#1", price: "$66,200", distance: expect.any(String), stale: false },
-      { id: "structural-magnets-magnet-1", label: "#2", price: "$65,500", distance: expect.any(String), stale: false },
-      { id: "structural-magnets-magnet-2", label: "#3", price: "$64,800", distance: expect.any(String), stale: false },
+      { id: "structural-magnets-magnet-0", label: "Magnet #1", price: "$66,200", distance: expect.any(String), stale: false },
+      { id: "structural-magnets-magnet-1", label: "Magnet #2", price: "$65,500", distance: expect.any(String), stale: false },
+      { id: "structural-magnets-magnet-2", label: "Magnet #3", price: "$64,800", distance: expect.any(String), stale: false },
     ]);
   });
 
@@ -88,15 +89,15 @@ describe("key zone groups", () => {
 
     expect(pocketZone?.price).toBe("66,500 - 67,500");
     expect(pocketZone?.moreCount).toBe(4);
-    expect(keyZoneMoreLabel(pocketZone!)).toBe("+4 más");
+    expect(keyZoneMoreLabel(pocketZone!)).toBe("5 niveles disponibles");
     expect(pocketZone?.items?.[0]).toEqual({
       id: "short-gamma-pockets-pocket-0",
-      label: "Upper Pocket",
+      label: "Lower Pocket #1",
       price: "66,500 - 67,500",
       distance: expect.any(String),
       stale: false,
     });
-    expect(pocketZone?.items?.[2]?.label).toBe("Lower Pocket");
+    expect(pocketZone?.items?.[2]?.label).toBe("Lower Pocket #3");
   });
 
   it("keeps flip and wall rows as single non-expandable entries", () => {
@@ -109,7 +110,7 @@ describe("key zone groups", () => {
     expect(keyZoneMoreLabel(flip!)).toBeNull();
   });
 
-  it("does not mark single-item groups as expandable", () => {
+  it("marks single-item magnet/pocket groups as expandable with summary label", () => {
     const micro = {
       ...snapshot.data.micro,
       nearbyMagnets: [{ price: 86_000, label: "M1", status: "available" as const }],
@@ -120,6 +121,7 @@ describe("key zone groups", () => {
     const magnetZone = zones.find((zone) => zone.id === "nearby-magnets");
 
     expect(magnetZone?.moreCount).toBe(0);
-    expect(isKeyZoneExpandable(magnetZone!)).toBe(false);
+    expect(isKeyZoneExpandable(magnetZone!)).toBe(true);
+    expect(keyZoneMoreLabel(magnetZone!)).toBe("1 nivel disponible");
   });
 });

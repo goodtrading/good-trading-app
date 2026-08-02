@@ -39,3 +39,21 @@ yarn-error.*
 .vercel
 
 .env
+
+# Visual Studio
+.vs/
+
+# Archivos locales
+.local/
+
+# Dependencias
+node_modules/
+.pnpm-store/
+
+# Logs
+*.log
+vitest*.txt
+
+# Sistema
+.DS_Store
+Thumbs.db

@@ -1,186 +1,235 @@
 import React from "react";
+
 import { View, Text, StyleSheet } from "react-native";
+
+import { editorial } from "@/constants/editorial";
+
+import { EditorialSectionTitle } from "@/components/EditorialSectionTitle";
+
 import { useColors } from "@/hooks/useColors";
 
+
+
 interface GammaCardProps {
+
   state: string;
+
   level: number;
+
   netGamma: string;
+
   flipPoint: string;
+
   description: string;
+
   dominantExpiry: string;
+
   hideNetGamma?: boolean;
+
   netGammaStale?: boolean;
+
   flipPointStale?: boolean;
+
   dominantExpiryStale?: boolean;
+
 }
 
-export function GammaCard({
-  state,
-  level,
-  netGamma,
-  flipPoint,
-  description,
-  dominantExpiry,
-  hideNetGamma = false,
-  netGammaStale = false,
-  flipPointStale = false,
-  dominantExpiryStale = false,
-}: GammaCardProps) {
-  const colors = useColors();
-  const isShort = state === "SHORT";
-  const isTransition = state === "TRANSITION";
-  const stateColor = isShort ? colors.primary : isTransition ? colors.gold : colors.success;
-  const absLevel = Math.abs(level);
-  const barWidth = `${absLevel}%` as const;
-  const staleSuffix = " (desactualizado)";
+
+
+function MetricRow({
+
+  label,
+
+  value,
+
+  colors,
+
+}: {
+
+  label: string;
+
+  value: string;
+
+  colors: ReturnType<typeof useColors>;
+
+}) {
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.card, borderColor: colors.border }]}>
-      <View style={styles.header}>
-        <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>GAMMA EXPOSURE</Text>
-      </View>
 
-      <View style={styles.barContainer}>
-        <View style={[styles.barTrack, { backgroundColor: colors.secondary }]}>
-          <View
-            style={[
-              styles.barFill,
-              {
-                width: barWidth,
-                backgroundColor: stateColor,
-                alignSelf: isShort ? "flex-start" : "flex-end",
-              },
-            ]}
-          />
-        </View>
-        <View style={styles.barLabels}>
-          <Text style={[styles.barLabel, { color: colors.success }]}>LONG</Text>
-          <Text style={[styles.barLevel, { color: stateColor }]}>{level}</Text>
-          <Text style={[styles.barLabel, { color: colors.primary }]}>SHORT</Text>
-        </View>
-      </View>
+    <View style={styles.metricRow}>
 
-      <View style={styles.statsRow}>
-        {!hideNetGamma && (
-          <>
-            <View style={styles.statItem}>
-              <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>GAMMA NETA</Text>
-              <Text style={[styles.statValue, { color: stateColor }]}>
-                {netGamma}
-                {netGammaStale ? staleSuffix : ""}
-              </Text>
-            </View>
-            <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-          </>
-        )}
-        <View style={styles.statItem}>
-          <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>FLIP POINT</Text>
-          <Text style={[styles.statValue, { color: colors.gold }]}>
-            {flipPoint || "No disponible"}
-            {flipPointStale ? staleSuffix : ""}
-          </Text>
-        </View>
-        {dominantExpiry ? (
-          <>
-            <View style={[styles.statDivider, { backgroundColor: colors.border }]} />
-            <View style={styles.statItem}>
-              <Text style={[styles.statLabel, { color: colors.mutedForeground }]}>EXP. DOMINANTE</Text>
-              <Text style={[styles.statValue, { color: colors.foreground }]}>
-                {dominantExpiry}
-                {dominantExpiryStale ? staleSuffix : ""}
-              </Text>
-            </View>
-          </>
-        ) : null}
-      </View>
+      <Text style={[styles.metricLabel, { color: colors.mutedForeground }]}>{label}</Text>
 
-      {description ? (
-        <Text style={[styles.description, { borderTopColor: colors.border, color: colors.mutedForeground }]}>
-          {description}
-        </Text>
-      ) : null}
+      <Text style={[styles.metricValue, { color: colors.foreground }]}>{value}</Text>
+
     </View>
+
   );
+
 }
 
+
+
+export function GammaCard({
+
+  state: _state,
+
+  level: _level,
+
+  netGamma,
+
+  flipPoint,
+
+  description,
+
+  dominantExpiry,
+
+  hideNetGamma = false,
+
+  netGammaStale = false,
+
+  flipPointStale = false,
+
+  dominantExpiryStale = false,
+
+}: GammaCardProps) {
+
+  const colors = useColors();
+
+  const staleSuffix = " · desactualizado";
+
+
+
+  return (
+
+    <View style={styles.section}>
+
+      <EditorialSectionTitle>Gamma</EditorialSectionTitle>
+
+
+
+      <View style={styles.metrics}>
+
+        {!hideNetGamma ? (
+
+          <MetricRow
+
+            label="Gamma neta"
+
+            value={`${netGamma}${netGammaStale ? staleSuffix : ""}`}
+
+            colors={colors}
+
+          />
+
+        ) : null}
+
+        <MetricRow
+
+          label="Flip point"
+
+          value={`${flipPoint || "No disponible"}${flipPointStale ? staleSuffix : ""}`}
+
+          colors={colors}
+
+        />
+
+        {dominantExpiry ? (
+
+          <MetricRow
+
+            label="Exp. dominante"
+
+            value={`${dominantExpiry}${dominantExpiryStale ? staleSuffix : ""}`}
+
+            colors={colors}
+
+          />
+
+        ) : null}
+
+      </View>
+
+
+
+      {description ? (
+
+        <Text style={[styles.description, { color: colors.mutedForeground }]}>{description}</Text>
+
+      ) : null}
+
+    </View>
+
+  );
+
+}
+
+
+
 const styles = StyleSheet.create({
-  container: {
-    borderRadius: 4,
-    borderWidth: 1,
-    overflow: "hidden",
-    marginBottom: 10,
+
+  section: {
+
+    gap: editorial.rowGap - 2,
+
   },
-  header: {
+
+  metrics: {
+
+    gap: 5,
+
+  },
+
+  metricRow: {
+
     flexDirection: "row",
+
     justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+
+    alignItems: "baseline",
+
+    gap: 12,
+
   },
-  sectionLabel: {
-    fontSize: 9,
-    fontFamily: "Inter_600SemiBold",
-    letterSpacing: 1.5,
-  },
-  barContainer: {
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-  },
-  barTrack: {
-    height: 5,
-    borderRadius: 3,
-    overflow: "hidden",
-    marginBottom: 6,
-  },
-  barFill: {
-    height: 5,
-    borderRadius: 3,
-  },
-  barLabels: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  barLabel: {
-    fontSize: 8,
-    fontFamily: "Inter_600SemiBold",
-    letterSpacing: 1,
-  },
-  barLevel: {
-    fontSize: 12,
-    fontFamily: "Inter_700Bold",
-  },
-  statsRow: {
-    flexDirection: "row",
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-  },
-  statItem: {
-    flex: 1,
-    alignItems: "center",
-  },
-  statDivider: {
-    width: 1,
-  },
-  statLabel: {
-    fontSize: 7,
-    fontFamily: "Inter_600SemiBold",
-    letterSpacing: 1,
-    marginBottom: 3,
-    textAlign: "center",
-  },
-  statValue: {
-    fontSize: 11,
-    fontFamily: "Inter_700Bold",
-    letterSpacing: 0.5,
-    textAlign: "center",
-  },
-  description: {
-    fontSize: 10,
+
+  metricLabel: {
+
+    fontSize: editorial.bodySize - 2,
+
     fontFamily: "Inter_400Regular",
-    lineHeight: 16,
-    padding: 12,
-    borderTopWidth: 1,
+
+    letterSpacing: 0.2,
+
   },
+
+  metricValue: {
+
+    fontSize: editorial.bodySize - 2,
+
+    fontFamily: "Inter_600SemiBold",
+
+    letterSpacing: 0.3,
+
+    textAlign: "right",
+
+    flexShrink: 1,
+
+  },
+
+  description: {
+
+    fontSize: editorial.metaSize + 1,
+
+    fontFamily: "Inter_400Regular",
+
+    lineHeight: 17,
+
+    letterSpacing: 0.2,
+
+    marginTop: 4,
+
+  },
+
 });
+
+

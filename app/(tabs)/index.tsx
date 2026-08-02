@@ -1,45 +1,52 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import {
   ScrollView,
   View,
   Text,
   StyleSheet,
   Image,
-  Platform,
   ActivityIndicator,
   Pressable,
+  Platform,
+  PanResponder,
 } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
+import { BottomTabBarHeightContext } from "@react-navigation/bottom-tabs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useMarketStateWithFallback } from "@/hooks/useMarketStateWithFallback";
 import { useStableKeyZones } from "@/hooks/useStableKeyZones";
 import { useActiveAsset } from "@/lib/assets";
 import { formatValuedField } from "@/lib/market-state/dataStatusUi";
-import {
-  mapGammaCardFromMacro,
-  mapGammaCardFromMicro,
-} from "@/lib/market-state/v2UiMappers";
 import { MOBILE_STATE_V2_ENABLED } from "@/lib/feature-flags";
 import { resolveHeaderRegimeFromV2 } from "@/lib/market-state/headerRegimeView";
 import { readMicroTransitionZone } from "@/lib/market-state/transitionZoneView";
+import { resolveIsHomeReady } from "@/lib/market-state/homeReadiness";
+import { filterIncrementalDrivers } from "@/lib/market-state/incrementalDrivers";
+import {
+  KEY_ZONE_LABEL_CALL_WALL,
+  KEY_ZONE_LABEL_PUT_WALL,
+} from "@/lib/market-state/v2UiMappers";
 import { useColors } from "@/hooks/useColors";
+import {
+  getTabScrollViewStyle,
+  TAB_SCROLL_VIEW_PROPS,
+  useTabScreenScrollInsets,
+} from "@/hooks/useTabScreenScrollInsets";
 import { editorial } from "@/constants/editorial";
 import { CommandBlock } from "@/components/CommandBlock";
 import { ScenarioCard } from "@/components/ScenarioCard";
 import { KeyZonesCard } from "@/components/KeyZonesCard";
-import { GammaCard } from "@/components/GammaCard";
 import { MarketStateBadge } from "@/components/MarketStateBadge";
 import { DriversCard } from "@/components/DriversCard";
+import { formatUsd } from "@/lib/portfolio/accounts/format";
 
 // NO mock imports. Every value shown comes from the API or shows explicit
 // "awaiting data" state. If you see real-looking numbers here, the terminal pushed them.
 
-// Helper functions for formatting
 const formatUsdPrice = (value: unknown) => {
   const n = Number(value);
   if (!Number.isFinite(n)) return "—";
-  return `$${n.toLocaleString("en-US", {
-    maximumFractionDigits: 0,
-  })}`;
+  return formatUsd(n);
 };
 
 const normalizeGammaLabel = (value: unknown) => {
@@ -230,18 +237,129 @@ type MarketScope = "Macro" | "Micro";
 
 export default function HomeScreen() {
   const colors = useColors();
-  const insets = useSafeAreaInsets();
-  const [marketScope, setMarketScope] = useState<MarketScope>("Micro");
-  const [scopeMenuOpen, setScopeMenuOpen] = useState(false);
+  const safeInsets = useSafeAreaInsets();
+  const tabBarHeight = useContext(BottomTabBarHeightContext);
+  const { bottomPad, contentPaddingTop, topPad } = useTabScreenScrollInsets(14);
+  const [marketScope, setMarketScope] = useState<MarketScope>("Macro");
+  const marketScopeRef = useRef(marketScope);
+  marketScopeRef.current = marketScope;
+  const scrollViewRef = useRef<ScrollView>(null);
+  const scrollYRef = useRef(0);
+  const contentHeightRef = useRef(0);
+  const hasEverRenderedHomeRef = useRef(false);
+
+  const logHomeScrollAudit = useCallback(
+    (trigger: string, extra?: Record<string, unknown>) => {
+      if (!__DEV__) return;
+      console.log("[HomeScrollAudit]", trigger, {
+        scrollY: scrollYRef.current,
+        contentHeight: contentHeightRef.current,
+        paddingTopEffective: contentPaddingTop,
+        topPad,
+        bottomPad,
+        safeAreaTop: safeInsets.top,
+        safeAreaBottom: safeInsets.bottom,
+        tabBarHeight: tabBarHeight ?? null,
+        marketScope,
+        platform: Platform.OS,
+        ...extra,
+      });
+    },
+    [
+      bottomPad,
+      contentPaddingTop,
+      marketScope,
+      safeInsets.bottom,
+      safeInsets.top,
+      tabBarHeight,
+      topPad,
+    ],
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      logHomeScrollAudit("focus-enter");
+      return () => {
+        logHomeScrollAudit("focus-blur");
+      };
+    }, [logHomeScrollAudit]),
+  );
+
+  useEffect(() => {
+    logHomeScrollAudit("scope-change");
+    const frameId = requestAnimationFrame(() => {
+      logHomeScrollAudit("scope-change-after-layout");
+    });
+    return () => cancelAnimationFrame(frameId);
+  }, [marketScope, logHomeScrollAudit]);
+
+  useEffect(() => {
+    logHomeScrollAudit("insets-change", {
+      contentPaddingTop,
+      topPad,
+      bottomPad,
+      safeAreaTop: safeInsets.top,
+      tabBarHeight: tabBarHeight ?? null,
+    });
+  }, [
+    bottomPad,
+    contentPaddingTop,
+    logHomeScrollAudit,
+    safeInsets.top,
+    tabBarHeight,
+    topPad,
+  ]);
 
   const { activeAsset } = useActiveAsset();
 
   const { source: marketStateSource, v2: marketStateV2, legacy: legacyMarketQuery } =
     useMarketStateWithFallback(activeAsset);
-  const { data: market, isLoading, isError: legacyIsError } = legacyMarketQuery;
+  const { data: market, isError: legacyIsError } = legacyMarketQuery;
   const isV2MarketState = marketStateSource === "v2" && MOBILE_STATE_V2_ENABLED;
   const showConnectionError =
     legacyIsError && !isV2MarketState && !marketStateV2.data && !marketStateV2.isLoading;
+
+  const handleScopeChange = useCallback(
+    (option: MarketScope) => {
+      logHomeScrollAudit("scope-change-request", {
+        nextScope: option,
+        previousScope: marketScopeRef.current,
+      });
+      setMarketScope(option);
+      if (isV2MarketState) {
+        marketStateV2.setSelectedMode(option === "Macro" ? "macro" : "micro");
+      }
+    },
+    [isV2MarketState, logHomeScrollAudit, marketStateV2],
+  );
+
+  const swipeResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_, gesture) => {
+          const absDx = Math.abs(gesture.dx);
+          const absDy = Math.abs(gesture.dy);
+          return absDx > 24 && absDx > absDy * 1.8;
+        },
+        onPanResponderTerminationRequest: () => true,
+        onPanResponderRelease: (_, gesture) => {
+          const SWIPE_DISTANCE = 56;
+          const SWIPE_VELOCITY = 0.35;
+          const wentLeft =
+            gesture.dx <= -SWIPE_DISTANCE || gesture.vx <= -SWIPE_VELOCITY;
+          const wentRight =
+            gesture.dx >= SWIPE_DISTANCE || gesture.vx >= SWIPE_VELOCITY;
+          if (wentLeft && marketScopeRef.current === "Macro") {
+            handleScopeChange("Micro");
+            return;
+          }
+          if (wentRight && marketScopeRef.current === "Micro") {
+            handleScopeChange("Macro");
+          }
+        },
+      }),
+    [handleScopeChange],
+  );
 
   // Map real API response structure to UI fields
   const raw = market as any; // this is now the unwrapped data.data object
@@ -397,26 +515,17 @@ export default function HomeScreen() {
 
   const rawDrivers = marketModeDrivers.length > 0 ? marketModeDrivers : raw?.bias?.drivers ?? [];
 
-  const driverLabels = Array.from(
-    new Set(
-      [
-        ...(Array.isArray(rawDrivers) ? rawDrivers : []),
-      ]
-        .filter(Boolean)
-        .map(normalizeDriverLabel)
-        .filter(
-          (driver) =>
-            driver !== "SHORT GAMMA" &&
-            driver !== "LONG GAMMA" &&
-            driver !== "TRANSITION GAMMA"
-        )
-    )
+  const rawDriverLabels = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          (Array.isArray(rawDrivers) ? rawDrivers : [])
+            .filter(Boolean)
+            .map(normalizeDriverLabel),
+        ),
+      ),
+    [rawDrivers],
   );
-
-  const drivers = driverLabels.map((label) => ({
-    label,
-    impact: classifyDriverImpact(label),
-  }));
 
   // Color mapping for derived states
   const getGammaColor = () => {
@@ -473,7 +582,7 @@ export default function HomeScreen() {
       {
         id: "call-wall",
         groupType: "single" as const,
-        label: "CALL WALL",
+        label: KEY_ZONE_LABEL_CALL_WALL,
         price: callWall ? formatUsdPrice(callWall) : "—",
         type: "resistance" as const,
         distance: "—",
@@ -482,7 +591,7 @@ export default function HomeScreen() {
       {
         id: "put-wall",
         groupType: "single" as const,
-        label: "PUT WALL",
+        label: KEY_ZONE_LABEL_PUT_WALL,
         price: putWall ? formatUsdPrice(putWall) : "—",
         type: "support" as const,
         distance: "—",
@@ -508,7 +617,7 @@ export default function HomeScreen() {
 
   useEffect(() => {
     if (MOBILE_STATE_V2_ENABLED) {
-      marketStateV2.setSelectedMode("micro");
+      marketStateV2.setSelectedMode("macro");
     }
   }, [marketStateV2.setSelectedMode]);
 
@@ -537,45 +646,75 @@ export default function HomeScreen() {
     fallbackZones: legacyZones,
   });
 
-  const legacyGammaCardProps = {
-    state: gammaLabel,
-    level: gammaLevel,
-    netGamma,
-    flipPoint,
-    description: "",
-    dominantExpiry,
-  };
+  const drivers = useMemo(
+    () =>
+      filterIncrementalDrivers(rawDriverLabels, {
+        regime: headerRegime.displayedRegime,
+        marketMode: normalizedMarketMode,
+        confidence,
+        setup: String(setup),
+        transitionZone: microTransitionZone,
+        scope: marketScope,
+        zoneLabels: zones.map((zone) => zone.label),
+      }).map((label) => ({
+        label,
+        impact: classifyDriverImpact(label),
+      })),
+    [
+      rawDriverLabels,
+      headerRegime.displayedRegime,
+      normalizedMarketMode,
+      confidence,
+      setup,
+      microTransitionZone,
+      marketScope,
+      zones,
+    ],
+  );
 
-  const v2GammaCardProps = gammaV2Active
-      ? marketScope === "Micro"
-        ? mapGammaCardFromMicro(marketStateV2.micro!, marketStateV2.relationship)
-        : mapGammaCardFromMacro(marketStateV2.macro!, marketStateV2.relationship)
-      : null;
+  const isHomeReady = resolveIsHomeReady({
+    v2Enabled: MOBILE_STATE_V2_ENABLED,
+    marketStateSource,
+    v2: {
+      data: marketStateV2.data,
+      micro: marketStateV2.micro,
+      macro: marketStateV2.macro,
+      spot: marketStateV2.spot,
+    },
+    legacyMarket: market,
+  });
 
-  const gammaCardProps = v2GammaCardProps ?? legacyGammaCardProps;
+  if (isHomeReady) {
+    hasEverRenderedHomeRef.current = true;
+  }
 
-  const topPad = Platform.OS === "web" ? 67 : insets.top;
-  const bottomPad = Platform.OS === "web" ? 34 + 84 : insets.bottom + 84;
-  const hasMarketSnapshot =
-    Boolean(marketStateV2.data) || Boolean(market);
-
-  // Only block UI on the true first load — never during background polling refresh.
-  const isPending =
-    !hasMarketSnapshot &&
-    ((isV2MarketState && marketStateV2.isLoading) ||
-      (!isV2MarketState && isLoading));
-
-  const hasRenderableData = hasMarketSnapshot;
+  // Block only until the first complete snapshot; never again on poll refresh.
+  const hasRenderableData = hasEverRenderedHomeRef.current;
+  const isPending = !hasRenderableData;
 
   return (
+    <View style={styles.container} {...swipeResponder.panHandlers}>
     <ScrollView
-      style={[styles.container, { backgroundColor: colors.background }]}
+      ref={scrollViewRef}
+      style={getTabScrollViewStyle(colors.background)}
       contentContainerStyle={{
-        paddingTop: topPad + 14,
+        paddingTop: contentPaddingTop,
         paddingBottom: bottomPad,
         paddingHorizontal: 16,
       }}
-      showsVerticalScrollIndicator={false}
+      onScroll={(event) => {
+        scrollYRef.current = event.nativeEvent.contentOffset.y;
+      }}
+      scrollEventThrottle={16}
+      onContentSizeChange={(_width, height) => {
+        contentHeightRef.current = height;
+      }}
+      onLayout={(event) => {
+        logHomeScrollAudit("scrollview-layout", {
+          scrollViewHeight: event.nativeEvent.layout.height,
+        });
+      }}
+      {...TAB_SCROLL_VIEW_PROPS}
     >
       {/* ── Header ─────────────────────────────────────────────── */}
       <View style={styles.topBar}>
@@ -593,48 +732,38 @@ export default function HomeScreen() {
           </Text>
         </View>
         <View style={styles.topBarRight}>
-          <View style={styles.scopeSelectorWrap}>
-            <Pressable
-              onPress={() => setScopeMenuOpen((open) => !open)}
-              style={styles.scopeButton}
-            >
-              <Text style={[styles.scopeButtonText, { color: colors.foreground }]}>
-                {marketScope}
-              </Text>
-              <Text style={[styles.scopeChevron, { color: colors.mutedForeground }]}>▼</Text>
-            </Pressable>
-            {scopeMenuOpen && (
-              <View style={styles.scopeMenu}>
-                {(["Macro", "Micro"] as const).map((option) => (
+          <View style={styles.scopeToggle}>
+            {(["Macro", "Micro"] as const).map((option, index) => {
+              const active = option === marketScope;
+              return (
+                <React.Fragment key={option}>
+                  {index > 0 ? (
+                    <Text style={[styles.scopeToggleDivider, { color: colors.mutedForeground }]}>
+                      |
+                    </Text>
+                  ) : null}
                   <Pressable
-                    key={option}
-                    onPress={() => {
-                      setMarketScope(option);
-                      if (isV2MarketState) {
-                        marketStateV2.setSelectedMode(option === "Macro" ? "macro" : "micro");
-                      }
-                      setScopeMenuOpen(false);
-                    }}
-                    style={[
-                      styles.scopeOption,
-                      option === marketScope && styles.scopeOptionActive,
-                    ]}
+                    onPress={() => handleScopeChange(option)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}
+                    accessibilityLabel={`Ver ${option}`}
+                    style={styles.scopeToggleOption}
                   >
                     <Text
                       style={[
-                        styles.scopeOptionText,
+                        styles.scopeToggleText,
                         {
-                          color:
-                            option === marketScope ? colors.foreground : colors.mutedForeground,
+                          color: active ? colors.foreground : colors.mutedForeground,
+                          opacity: active ? 1 : 0.55,
                         },
                       ]}
                     >
                       {option}
                     </Text>
                   </Pressable>
-                ))}
-              </View>
-            )}
+                </React.Fragment>
+              );
+            })}
           </View>
           {isPending && (
             <ActivityIndicator size="small" color={colors.primary} />
@@ -680,37 +809,26 @@ export default function HomeScreen() {
             showTransitionInsteadOfSetup={marketScope === "Micro"}
           />
 
-          {/* ScenarioCard and DriversCard side by side */}
-          <View style={styles.contextRow}>
-            <View style={styles.contextColumn}>
+          {/* Context (+ scenario in Macro only) */}
+          <View style={[styles.contextRow, marketScope === "Macro" && styles.contextRowMacro]}>
+            <View style={[styles.contextColumn, marketScope === "Micro" && styles.contextColumnFull]}>
               <DriversCard drivers={drivers} />
             </View>
 
-            <View style={styles.contextColumn}>
-              <ScenarioCard
-                label={normalizedScenarioLabel}
-                title={scenarioText}
-                description=""
-                probability={probabilityRaw}
-              />
-            </View>
+            {marketScope === "Macro" ? (
+              <View style={styles.scenarioColumn}>
+                <ScenarioCard
+                  label={normalizedScenarioLabel}
+                  title={scenarioText}
+                  description=""
+                  probability={probabilityRaw}
+                />
+              </View>
+            ) : null}
           </View>
 
           {/* KeyZonesCard: zones from v2 or legacy */}
           <KeyZonesCard zones={zones} selectedMode={marketScope} />
-
-          {/* GammaCard: gamma exposure from v2 or legacy */}
-          <GammaCard
-            state={gammaCardProps.state}
-            level={gammaCardProps.level}
-            netGamma={gammaCardProps.netGamma}
-            flipPoint={gammaCardProps.flipPoint}
-            description={gammaCardProps.description}
-            dominantExpiry={gammaCardProps.dominantExpiry}
-            hideNetGamma={v2GammaCardProps?.hideNetGamma ?? false}
-            netGammaStale={v2GammaCardProps?.netGammaStale ?? false}
-            flipPointStale={v2GammaCardProps?.flipPointStale ?? false}
-          />
         </>
       )}
 
@@ -724,6 +842,7 @@ export default function HomeScreen() {
         </View>
       )}
     </ScrollView>
+    </View>
   );
 }
 
@@ -733,7 +852,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    marginBottom: 16,
+    marginBottom: editorial.blockGap,
     zIndex: 10,
   },
   topBarTitle: {
@@ -744,43 +863,21 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
   },
-  scopeSelectorWrap: {
-    position: "relative",
-    zIndex: 20,
-  },
-  scopeButton: {
+  scopeToggle: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 4,
-    paddingVertical: 4,
+    gap: 8,
   },
-  scopeButtonText: {
+  scopeToggleDivider: {
     fontSize: 9,
-    fontFamily: "Inter_600SemiBold",
-    letterSpacing: 1,
+    fontFamily: "Inter_400Regular",
+    opacity: 0.45,
   },
-  scopeChevron: {
-    fontSize: 8,
-    fontFamily: "Inter_600SemiBold",
-  },
-  scopeMenu: {
-    position: "absolute",
-    top: "100%",
-    right: 0,
-    marginTop: 4,
-    minWidth: 88,
+  scopeToggleOption: {
+    paddingHorizontal: 2,
     paddingVertical: 4,
-    zIndex: 30,
   },
-  scopeOption: {
-    paddingHorizontal: 8,
-    paddingVertical: 8,
-  },
-  scopeOptionActive: {
-    opacity: 1,
-  },
-  scopeOptionText: {
+  scopeToggleText: {
     fontSize: 9,
     fontFamily: "Inter_600SemiBold",
     letterSpacing: 1,
@@ -788,7 +885,7 @@ const styles = StyleSheet.create({
   logo: {
     width: 32,
     height: 32,
-    borderRadius: 4,
+    borderRadius: editorial.frameRadius,
   },
   appName: {
     fontSize: 17,
@@ -813,13 +910,24 @@ const styles = StyleSheet.create({
   contextRow: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
+    gap: editorial.blockGap,
     width: "100%",
-    alignItems: "stretch",
+    alignItems: "flex-start",
+    marginBottom: editorial.sectionGap,
+  },
+  contextRowMacro: {
+    flexDirection: "column",
+    gap: Math.round(editorial.blockGap * 1.65),
   },
   contextColumn: {
     flex: 1,
-    minWidth: 280,
+    minWidth: 240,
+  },
+  contextColumnFull: {
+    minWidth: "100%",
+  },
+  scenarioColumn: {
+    width: "100%",
   },
   marketStateBar: {
     flexDirection: "row",

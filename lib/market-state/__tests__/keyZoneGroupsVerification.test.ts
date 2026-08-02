@@ -15,7 +15,7 @@ describe("key zone groups verification", () => {
   const snapshot = createBothModeEnvelopeFixture();
   const spot = snapshot.data.asset.spot.value;
 
-  it("manual counts: 0 hidden, 1 no more, 2 => +1, 5 => +4", () => {
+  it("summary labels: hidden, 1 nivel, 2 niveles, 5 niveles", () => {
     const baseMacro = {
       ...snapshot.data.macro,
       structuralMagnets: [],
@@ -37,8 +37,8 @@ describe("key zone groups verification", () => {
     );
     const single = oneMagnet.find((zone) => zone.id === "structural-magnets");
     expect(single?.moreCount).toBe(0);
-    expect(keyZoneMoreLabel(single!)).toBeNull();
-    expect(isKeyZoneExpandable(single!)).toBe(false);
+    expect(keyZoneMoreLabel(single!)).toBe("1 nivel disponible");
+    expect(isKeyZoneExpandable(single!)).toBe(true);
 
     const twoMagnets = mapKeyZonesFromMacro(
       {
@@ -52,7 +52,7 @@ describe("key zone groups verification", () => {
     );
     const pair = twoMagnets.find((zone) => zone.id === "structural-magnets");
     expect(pair?.moreCount).toBe(1);
-    expect(keyZoneMoreLabel(pair!)).toBe("+1 más");
+    expect(keyZoneMoreLabel(pair!)).toBe("2 niveles disponibles");
 
     const fivePockets = mapKeyZonesFromMacro(
       {
@@ -68,7 +68,7 @@ describe("key zone groups verification", () => {
     const pocketGroup = fivePockets.find((zone) => zone.id === "short-gamma-pockets");
     expect(pocketGroup?.items?.length).toBe(5);
     expect(pocketGroup?.moreCount).toBe(4);
-    expect(keyZoneMoreLabel(pocketGroup!)).toBe("+4 más");
+    expect(keyZoneMoreLabel(pocketGroup!)).toBe("5 niveles disponibles");
   });
 
   it("selects magnet closest to spot as primary", () => {
@@ -94,7 +94,7 @@ describe("key zone groups verification", () => {
     ]);
   });
 
-  it("prefers active pocket over closer inactive pocket", () => {
+  it("sorts pockets by spot proximity", () => {
     const macro = {
       ...snapshot.data.macro,
       structuralMagnets: [],
@@ -116,8 +116,9 @@ describe("key zone groups verification", () => {
     const zones = mapKeyZonesFromMacro(macro, spot);
     const pocketZone = zones.find((zone) => zone.id === "short-gamma-pockets");
 
-    expect(pocketZone?.price).toBe("$90,000");
-    expect(pocketZone?.items?.[0]?.label).toBe("Active Pocket");
+    expect(pocketZone?.price).toBe("$84,000");
+    expect(pocketZone?.items?.[0]?.label).toBe("Lower Pocket #1");
+    expect(pocketZone?.items?.[1]?.label).toBe("Upper Pocket #2");
   });
 
   it("does not render structural scenarios in key zones", () => {

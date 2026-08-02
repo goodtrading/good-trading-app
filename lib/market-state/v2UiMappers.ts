@@ -57,9 +57,16 @@ export type KeyZoneViewModel = {
 export const KEY_ZONE_LABEL_LOCAL_FLIP = "Local Flip";
 export const KEY_ZONE_LABEL_GLOBAL_FLIP = "Global Flip";
 
+export const KEY_ZONE_LABEL_CALL_WALL = "Call Wall";
+export const KEY_ZONE_LABEL_PUT_WALL = "Put Wall";
+export const KEY_ZONE_LABEL_DEALER_PIVOT = "Dealer Pivot";
+
 export const KEY_ZONE_GROUP_STRUCTURAL_MAGNET = "Structural Magnet";
-export const KEY_ZONE_GROUP_NEARBY_MAGNET = "Nearby Magnet";
+/** Row label only — BottomSheet title keeps KEY_ZONE_GROUP_STRUCTURAL_MAGNET. */
+export const KEY_ZONE_ROW_STRUCTURAL_MAGNET = "Imanes Estructurales";
+export const KEY_ZONE_GROUP_NEARBY_MAGNET = "Imanes Cercanos";
 export const KEY_ZONE_GROUP_SHORT_GAMMA_POCKET = "Short Gamma Pocket";
+export const KEY_ZONE_MAGNET_BAR_COLOR = "#3b82f6";
 export const KEY_ZONE_GROUP_STRUCTURAL_SCENARIO = "Structural Scenario";
 export const KEY_ZONE_GROUP_TAIL_SCENARIO = "Tail Scenario";
 export const KEY_ZONE_GROUP_INTRADAY_SCENARIO = "Intraday Scenario";
@@ -113,23 +120,39 @@ function pocketAnchorDistance(pocket: PocketLike, spot: number | null): number {
   return Number.POSITIVE_INFINITY;
 }
 
-function isPocketActive(pocket: PocketLike): boolean {
-  return pocket.active === true || pocket.isActive === true;
+function sortPocketsBySpotProximity(pockets: PocketLike[], spot: number | null): PocketLike[] {
+  return [...pockets].sort(
+    (left, right) => pocketAnchorDistance(left, spot) - pocketAnchorDistance(right, spot),
+  );
+}
+
+function pocketAnchorPrice(pocket: PocketLike): number | null {
+  if (pocket.price != null) return pocket.price;
+  if (pocket.priceLow != null && pocket.priceHigh != null) {
+    return (pocket.priceLow + pocket.priceHigh) / 2;
+  }
+  if (pocket.priceLow != null) return pocket.priceLow;
+  if (pocket.priceHigh != null) return pocket.priceHigh;
+  return null;
+}
+
+function formatPocketLabel(pocket: PocketLike, spot: number | null, rank: number): string {
+  const anchor = pocketAnchorPrice(pocket);
+  if (spot != null && anchor != null && Number.isFinite(anchor)) {
+    if (anchor > spot) return `Upper Pocket #${rank}`;
+    if (anchor < spot) return `Lower Pocket #${rank}`;
+    return `Pocket #${rank}`;
+  }
+  const lower = pocket.label?.toLowerCase() ?? "";
+  if (lower.includes("upper")) return `Upper Pocket #${rank}`;
+  if (lower.includes("lower")) return `Lower Pocket #${rank}`;
+  return `Pocket #${rank}`;
 }
 
 function sortMagnetsBySpotProximity(magnets: MagnetLike[], spot: number | null): MagnetLike[] {
   return [...magnets].sort(
     (left, right) => spotDistance(left.price, spot) - spotDistance(right.price, spot),
   );
-}
-
-function sortPocketsByPriority(pockets: PocketLike[], spot: number | null): PocketLike[] {
-  return [...pockets].sort((left, right) => {
-    const leftActive = isPocketActive(left);
-    const rightActive = isPocketActive(right);
-    if (leftActive !== rightActive) return leftActive ? -1 : 1;
-    return pocketAnchorDistance(left, spot) - pocketAnchorDistance(right, spot);
-  });
 }
 
 function sortScenariosByProbability(scenarios: ScenarioLike[]): ScenarioLike[] {
@@ -156,18 +179,6 @@ function formatPocketPrice(pocket: PocketLike): string | null {
     return `${formatUsdPlain(pocket.priceLow)} - ${formatUsdPlain(pocket.priceHigh)}`;
   }
   return formatValuedField(pocket.status, pocket.price, formatUsd);
-}
-
-function humanizePocketLabel(label: string | null, index: number): string {
-  if (!label) return `Pocket ${index + 1}`;
-  const lower = label.toLowerCase();
-  if (lower.includes("upper")) return "Upper Pocket";
-  if (lower.includes("lower")) return "Lower Pocket";
-  return label
-    .replace(/[-_]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 function buildGroupedZone(args: {
@@ -213,8 +224,8 @@ function mapMagnetDetailItems(
     items.push({
       id: `${groupId}-magnet-${index}`,
       label: numberedLabels
-        ? `#${index + 1}`
-        : (magnet.label?.toUpperCase() ?? `#${index + 1}`),
+        ? `Magnet #${index + 1}`
+        : (magnet.label?.toUpperCase() ?? `Magnet #${index + 1}`),
       price,
       distance: distancePctForLevel(spot, magnet.price),
       stale: isStaleMetric(magnet.status),
@@ -229,7 +240,7 @@ function mapPocketDetailItems(
   spot: number | null,
   groupId: string,
 ): KeyZoneDetailItem[] {
-  const sorted = sortPocketsByPriority(pockets, spot);
+  const sorted = sortPocketsBySpotProximity(pockets, spot);
   const items: KeyZoneDetailItem[] = [];
 
   for (const [index, pocket] of sorted.entries()) {
@@ -237,7 +248,7 @@ function mapPocketDetailItems(
     if (!price) continue;
     items.push({
       id: `${groupId}-pocket-${index}`,
-      label: humanizePocketLabel(pocket.label, index),
+      label: formatPocketLabel(pocket, spot, index + 1),
       price,
       distance: distancePctForPocket(spot, pocket),
       stale: isStaleMetric(pocket.status),
@@ -286,11 +297,35 @@ export function logKeyZoneGroups(zones: KeyZoneViewModel[]): void {
   );
 }
 
+const KEY_ZONE_GROUPED_COLLECTION_TYPES: KeyZoneGroupType[] = [
+  "nearby_magnet",
+  "structural_magnet",
+  "nearby_pocket",
+  "short_gamma_pocket",
+];
+
+export function isKeyZoneGroupedCollection(zone: KeyZoneViewModel): boolean {
+  return KEY_ZONE_GROUPED_COLLECTION_TYPES.includes(zone.groupType);
+}
+
+/** Grouped magnet/pocket rows show summary only — prices live in the BottomSheet. */
+export function isKeyZoneSummaryOnlyRow(zone: KeyZoneViewModel): boolean {
+  return isKeyZoneGroupedCollection(zone) && (zone.items?.length ?? 0) > 0;
+}
+
 export function isKeyZoneExpandable(zone: KeyZoneViewModel): boolean {
+  if (isKeyZoneGroupedCollection(zone)) {
+    return (zone.items?.length ?? 0) > 0;
+  }
   return (zone.moreCount ?? 0) > 0;
 }
 
 export function keyZoneMoreLabel(zone: KeyZoneViewModel): string | null {
+  if (isKeyZoneGroupedCollection(zone)) {
+    const count = zone.items?.length ?? 0;
+    if (count === 0) return null;
+    return count === 1 ? "1 nivel disponible" : `${count} niveles disponibles`;
+  }
   const count = zone.moreCount ?? 0;
   return count > 0 ? `+${count} más` : null;
 }
@@ -473,8 +508,9 @@ export function mapKeyZonesFromMicro(micro: MicroContext, spot: number | null): 
     id: "nearby-magnets",
     groupType: "nearby_magnet",
     label: KEY_ZONE_GROUP_NEARBY_MAGNET,
-    modalTitle: "NEARBY MAGNETS",
+    modalTitle: KEY_ZONE_GROUP_NEARBY_MAGNET,
     type: "neutral",
+    barColor: KEY_ZONE_MAGNET_BAR_COLOR,
     items: mapMagnetDetailItems(micro.nearbyMagnets, spot, "nearby-magnets", true),
   });
   if (magnetGroup) zones.push(magnetGroup);
@@ -519,7 +555,7 @@ export function mapKeyZonesFromMacro(macro: MacroContext, spot: number | null): 
 
   const callWall = levelZone(
     "call-wall",
-    "CALL WALL",
+    KEY_ZONE_LABEL_CALL_WALL,
     macro.callWall.status,
     macro.callWall.value,
     { ...distanceFor(macro.callWall.value), status: macro.callWall.status },
@@ -528,7 +564,7 @@ export function mapKeyZonesFromMacro(macro: MacroContext, spot: number | null): 
 
   const putWall = levelZone(
     "put-wall",
-    "PUT WALL",
+    KEY_ZONE_LABEL_PUT_WALL,
     macro.putWall.status,
     macro.putWall.value,
     { ...distanceFor(macro.putWall.value), status: macro.putWall.status },
@@ -537,7 +573,7 @@ export function mapKeyZonesFromMacro(macro: MacroContext, spot: number | null): 
 
   const dealerPivot = levelZone(
     "dealer-pivot",
-    "DEALER PIVOT",
+    KEY_ZONE_LABEL_DEALER_PIVOT,
     macro.dealerPivot.status,
     macro.dealerPivot.value,
     { ...distanceFor(macro.dealerPivot.value), status: macro.dealerPivot.status },
@@ -547,9 +583,10 @@ export function mapKeyZonesFromMacro(macro: MacroContext, spot: number | null): 
   const magnetGroup = buildGroupedZone({
     id: "structural-magnets",
     groupType: "structural_magnet",
-    label: KEY_ZONE_GROUP_STRUCTURAL_MAGNET,
-    modalTitle: "STRUCTURAL MAGNETS",
+    label: KEY_ZONE_ROW_STRUCTURAL_MAGNET,
+    modalTitle: KEY_ZONE_GROUP_STRUCTURAL_MAGNET,
     type: "neutral",
+    barColor: KEY_ZONE_MAGNET_BAR_COLOR,
     items: mapMagnetDetailItems(macro.structuralMagnets, spot, "structural-magnets", true),
   });
   if (magnetGroup) zones.push(magnetGroup);

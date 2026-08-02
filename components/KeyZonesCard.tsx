@@ -1,7 +1,8 @@
 import React, { memo, useEffect, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { BottomSheetModal } from "@/components/BottomSheetModal";
+import { CenteredDialogModal } from "@/components/CenteredDialogModal";
+import { EditorialSectionTitle } from "@/components/EditorialSectionTitle";
 import { editorial } from "@/constants/editorial";
 import { useColors } from "@/hooks/useColors";
 import {
@@ -97,9 +98,9 @@ function KeyZonesCardComponent({ zones, selectedMode }: KeyZonesCardProps) {
     <>
       <View style={styles.container}>
         <View style={styles.header}>
-          <Text style={[styles.sectionLabel, { color: colors.mutedForeground }]}>
+          <EditorialSectionTitle style={styles.sectionTitle}>
             Niveles · {selectedMode}
-          </Text>
+          </EditorialSectionTitle>
         </View>
 
         {displayZones.length === 0 ? (
@@ -115,6 +116,14 @@ function KeyZonesCardComponent({ zones, selectedMode }: KeyZonesCardProps) {
               styles.row,
               index === displayZones.length - 1 && styles.rowLast,
             ];
+            const distanceColor =
+              zone.type === "current"
+                ? colors.mutedForeground
+                : zone.distance.startsWith("+")
+                  ? colors.success
+                  : colors.primary;
+            const showDistance =
+              zone.distance && zone.distance !== "—" && zone.distance !== "-";
             const row = (
               <>
                 <View
@@ -144,34 +153,29 @@ function KeyZonesCardComponent({ zones, selectedMode }: KeyZonesCardProps) {
                   </View>
 
                   <View style={styles.rightSide}>
-                    <Text
-                      style={[
-                        styles.price,
-                        {
-                          color: isCurrent ? colors.gold : colors.foreground,
-                          fontSize: isCurrent ? 15 : 13,
-                        },
-                      ]}
-                    >
-                      {zone.price}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.distance,
-                        {
-                          color:
-                            zone.type === "current"
-                              ? colors.mutedForeground
-                              : zone.distance.startsWith("+")
-                                ? colors.success
-                                : colors.primary,
-                        },
-                      ]}
-                    >
-                      {zone.distance && zone.distance !== "—" && zone.distance !== "-"
-                        ? zone.distance
-                        : null}
-                    </Text>
+                    <View style={styles.priceColumn}>
+                      <Text
+                        style={[
+                          styles.price,
+                          {
+                            color: isCurrent ? colors.gold : colors.foreground,
+                            fontSize: isCurrent ? 17 : 15,
+                          },
+                        ]}
+                      >
+                        {zone.price}
+                      </Text>
+                      {showDistance ? (
+                        <Text style={[styles.distance, { color: distanceColor }]}>
+                          {zone.distance}
+                        </Text>
+                      ) : null}
+                    </View>
+                    {expandable ? (
+                      <Text style={[styles.expandChevron, { color: colors.mutedForeground }]}>
+                        ›
+                      </Text>
+                    ) : null}
                   </View>
                 </View>
               </>
@@ -200,7 +204,7 @@ function KeyZonesCardComponent({ zones, selectedMode }: KeyZonesCardProps) {
         )}
       </View>
 
-      <BottomSheetModal
+      <CenteredDialogModal
         visible={expandedZone != null}
         title={expandedZone?.modalTitle ?? expandedZone?.label ?? ""}
         onClose={() => setExpandedZone(null)}
@@ -208,7 +212,7 @@ function KeyZonesCardComponent({ zones, selectedMode }: KeyZonesCardProps) {
         {expandedZone?.items ? (
           <KeyZoneGroupDetail items={expandedZone.items} colors={colors} />
         ) : null}
-      </BottomSheetModal>
+      </CenteredDialogModal>
     </>
   );
 }
@@ -223,28 +227,28 @@ export const KeyZonesCard = memo(
 const styles = StyleSheet.create({
   container: {
     marginBottom: editorial.sectionGap,
-    gap: editorial.rowGap,
+    gap: editorial.rowGap - 2,
   },
   header: {
-    marginBottom: 4,
+    marginBottom: 0,
   },
-  sectionLabel: {
-    fontSize: editorial.metaSize,
-    fontFamily: "Inter_500Medium",
-    letterSpacing: editorial.labelTracking,
+  sectionTitle: {
+    fontSize: 16,
+    lineHeight: 22,
   },
   emptyRow: {
     paddingVertical: 12,
     alignItems: "flex-start",
   },
   emptyText: {
-    fontSize: 11,
+    fontSize: 13,
     fontFamily: "Inter_400Regular",
+    lineHeight: 16,
   },
   row: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 8,
+    paddingVertical: 4,
   },
   rowLast: {
     paddingBottom: 0,
@@ -262,36 +266,53 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
+    alignItems: "flex-start",
   },
   leftSide: {
     flex: 1,
     paddingRight: 12,
   },
   zoneLabel: {
-    fontSize: 10,
+    fontSize: 12,
     fontFamily: "Inter_500Medium",
     letterSpacing: 0.5,
+    lineHeight: 15,
   },
   moreLabel: {
     marginTop: 3,
-    fontSize: 9,
+    fontSize: 11,
     fontFamily: "Inter_600SemiBold",
     letterSpacing: 0.4,
+    lineHeight: 14,
   },
   rightSide: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingTop: 1,
+  },
+  priceColumn: {
     alignItems: "flex-end",
   },
+  expandChevron: {
+    fontSize: 14,
+    fontFamily: "Inter_400Regular",
+    opacity: 0.38,
+    lineHeight: 16,
+    marginTop: -1,
+  },
   price: {
-    fontSize: 13,
+    fontSize: 15,
     fontFamily: "Inter_700Bold",
     letterSpacing: 0.5,
+    lineHeight: 18,
   },
   distance: {
-    fontSize: 9,
+    fontSize: 10,
     fontFamily: "Inter_500Medium",
     marginTop: 2,
     letterSpacing: 0.3,
+    lineHeight: 13,
   },
   detailRow: {
     paddingVertical: 12,
@@ -301,20 +322,23 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0,
   },
   detailLabel: {
-    fontSize: 10,
+    fontSize: 12,
     fontFamily: "Inter_600SemiBold",
     letterSpacing: 0.5,
     marginBottom: 4,
+    lineHeight: 15,
   },
   detailPrice: {
-    fontSize: 14,
+    fontSize: 16,
     fontFamily: "Inter_700Bold",
     letterSpacing: 0.4,
+    lineHeight: 19,
   },
   detailDistance: {
     marginTop: 3,
-    fontSize: 9,
+    fontSize: 10,
     fontFamily: "Inter_500Medium",
     letterSpacing: 0.3,
+    lineHeight: 13,
   },
 });

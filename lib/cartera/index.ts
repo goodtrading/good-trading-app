@@ -9,6 +9,34 @@ export {
   saveActiveCarteraContext,
   CARTERA_ACTIVE_CONTEXT_STORAGE_KEY,
 } from "./storage/carteraContextStorage";
+export {
+  loadTradingMode,
+  saveTradingMode,
+  loadTradingWorkspaceTab,
+  saveTradingWorkspaceTab,
+  DEFAULT_TRADING_MODE,
+  DEFAULT_WORKSPACE_TAB,
+  TRADING_MODE_STORAGE_KEY,
+  TRADING_WORKSPACE_TAB_STORAGE_KEY,
+} from "./storage/tradingModePreference";
+export type {
+  TradingMode,
+  TradingWorkspaceTab,
+} from "./storage/tradingModePreference";
+export {
+  TradingModeProvider,
+  useTradingMode,
+  type TradingModeContextValue,
+  type TradingModeRules,
+} from "./context/TradingModeContext";
+/** @deprecated Prefer TradingMode (SPOT / PERP). */
+export {
+  loadTradingViewPreference,
+  saveTradingViewPreference,
+  DEFAULT_TRADING_VIEW,
+  TRADING_VIEW_PREFERENCE_STORAGE_KEY,
+} from "./storage/tradingViewPreference";
+export type { TradingViewPreference } from "./storage/tradingViewPreference";
 export { loadPortfolioReadModel, PortfolioReadModelService } from "./read/portfolioReadModelService";
 export type {
   PortfolioReadModel,

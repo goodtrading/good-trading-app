@@ -4,40 +4,62 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import {
   formatPaperCurrencyAmount,
-  formatPaperPnlPercent,
   maskDisplayValue,
   PAPER_CURRENCY_OPTIONS,
   type PaperConversionRates,
   type PaperDisplayCurrency,
 } from "@/components/portfolio/paperDisplay";
 import { useColors } from "@/hooks/useColors";
-import { formatUsd, signedValueColor } from "@/lib/portfolio/accounts/format";
+import { formatUsd } from "@/lib/portfolio/accounts/format";
 
-type Props = {
-  equityUsd: number;
+type SpotHeaderProps = {
+  mode: "SPOT";
+  walletBalance: number;
+  availableBalance: number;
+  equity: number;
   totalReturnPercent: number;
-  initialBalance: number;
-  cashBalance: number;
   conversionRates: PaperConversionRates;
+  /** Always-visible transfer control (same modal as PERP). */
+  onTransferPress?: () => void;
 };
 
-export function PaperPortfolioHeader({
-  equityUsd,
-  totalReturnPercent,
-  initialBalance,
-  cashBalance,
-  conversionRates,
-}: Props) {
+type PerpHeaderProps = {
+  mode: "PERP";
+  walletBalance: number;
+  availableBalance: number;
+  equity: number;
+  totalReturnPercent: number;
+  conversionRates: PaperConversionRates;
+  /** Always-visible transfer control (same modal as SPOT). */
+  onTransferPress?: () => void;
+};
+
+/** Small horizontal exchange arrows (→ over ←). */
+function TransferIcon({ color }: { color: string }) {
+  return (
+    <View style={styles.transferIcon}>
+      <Feather name="arrow-right" size={9} color={color} style={styles.transferArrowTop} />
+      <Feather name="arrow-left" size={9} color={color} />
+    </View>
+  );
+}
+
+export type PaperPortfolioHeaderProps = SpotHeaderProps | PerpHeaderProps;
+
+export function PaperPortfolioHeader(props: PaperPortfolioHeaderProps) {
   const colors = useColors();
   const [balancesHidden, setBalancesHidden] = useState(false);
   const [selectedCurrency, setSelectedCurrency] = useState<PaperDisplayCurrency>("USDT");
   const [currencyMenuOpen, setCurrencyMenuOpen] = useState(false);
 
-  const returnColor = signedValueColor(totalReturnPercent, colors);
-  const isReturnPositive = totalReturnPercent > 0;
-
-  const primaryValue = formatPaperCurrencyAmount(equityUsd, selectedCurrency, conversionRates);
-  const usdEquivalent = formatUsd(equityUsd);
+  const primaryUsd = props.equity;
+  const primaryLabel = "Equity";
+  const primaryValue = formatPaperCurrencyAmount(
+    primaryUsd,
+    selectedCurrency,
+    props.conversionRates,
+  );
+  const usdEquivalent = formatUsd(primaryUsd);
 
   const handleSelectCurrency = (currency: PaperDisplayCurrency) => {
     setSelectedCurrency(currency);
@@ -48,7 +70,7 @@ export function PaperPortfolioHeader({
     <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.card }]}>
       <View style={styles.headerTopRow}>
         <Text style={[styles.summaryLabel, { color: colors.mutedForeground }]}>
-          Valor total est.
+          {primaryLabel}
         </Text>
         <Pressable
           onPress={() => setBalancesHidden((prev) => !prev)}
@@ -74,6 +96,21 @@ export function PaperPortfolioHeader({
         >
           {maskDisplayValue(primaryValue, balancesHidden)}
         </Text>
+
+        {props.onTransferPress ? (
+          <Pressable
+            onPress={props.onTransferPress}
+            hitSlop={6}
+            style={[
+              styles.transferButton,
+              { borderColor: colors.border, backgroundColor: colors.secondary },
+            ]}
+            accessibilityRole="button"
+            accessibilityLabel="Transferir Spot y Perp"
+          >
+            <TransferIcon color={colors.primary} />
+          </Pressable>
+        ) : null}
 
         <View style={styles.currencySelectorWrap}>
           <Pressable
@@ -135,19 +172,6 @@ export function PaperPortfolioHeader({
         <Text style={[styles.usdEquivalent, { color: colors.mutedForeground }]}>
           ≈ {maskDisplayValue(usdEquivalent, balancesHidden)}
         </Text>
-
-        <View style={styles.returnWrap}>
-          {!balancesHidden && totalReturnPercent !== 0 ? (
-            <Feather
-              name={isReturnPositive ? "arrow-up-right" : "arrow-down-right"}
-              size={12}
-              color={returnColor}
-            />
-          ) : null}
-          <Text style={[styles.returnValue, { color: returnColor }]}>
-            {maskDisplayValue(formatPaperPnlPercent(totalReturnPercent), balancesHidden)}
-          </Text>
-        </View>
       </View>
 
       {currencyMenuOpen ? (
@@ -160,18 +184,61 @@ export function PaperPortfolioHeader({
       ) : null}
 
       <View style={[styles.capitalBlock, { borderTopColor: colors.border }]}>
-        <View style={styles.capitalRow}>
-          <Text style={[styles.capitalLabel, { color: colors.mutedForeground }]}>Capital inicial</Text>
-          <Text style={[styles.capitalValue, { color: colors.foreground }]}>
-            {maskDisplayValue(formatUsd(initialBalance), balancesHidden)}
-          </Text>
-        </View>
-        <View style={styles.capitalRow}>
-          <Text style={[styles.capitalLabel, { color: colors.mutedForeground }]}>Cash disponible</Text>
-          <Text style={[styles.capitalValue, { color: colors.foreground }]}>
-            {maskDisplayValue(formatUsd(cashBalance), balancesHidden)}
-          </Text>
-        </View>
+        {props.mode === "PERP" ? (
+          <>
+            <View style={styles.capitalRow}>
+              <Text style={[styles.capitalLabel, { color: colors.mutedForeground }]}>
+                Wallet Balance
+              </Text>
+              <Text style={[styles.capitalValue, { color: colors.foreground }]}>
+                {maskDisplayValue(formatUsd(props.walletBalance), balancesHidden)}
+              </Text>
+            </View>
+            <View style={styles.capitalRow}>
+              <Text style={[styles.capitalLabel, { color: colors.mutedForeground }]}>
+                Available
+              </Text>
+              <Text style={[styles.capitalValue, { color: colors.foreground }]}>
+                {maskDisplayValue(formatUsd(props.availableBalance), balancesHidden)}
+              </Text>
+            </View>
+            <View style={styles.capitalRow}>
+              <Text style={[styles.capitalLabel, { color: colors.mutedForeground }]}>
+                Equity
+              </Text>
+              <Text style={[styles.capitalValue, { color: colors.foreground }]}>
+                {maskDisplayValue(formatUsd(props.equity), balancesHidden)}
+              </Text>
+            </View>
+          </>
+        ) : (
+          <>
+            <View style={styles.capitalRow}>
+              <Text style={[styles.capitalLabel, { color: colors.mutedForeground }]}>
+                Wallet Balance
+              </Text>
+              <Text style={[styles.capitalValue, { color: colors.foreground }]}>
+                {maskDisplayValue(formatUsd(props.walletBalance), balancesHidden)}
+              </Text>
+            </View>
+            <View style={styles.capitalRow}>
+              <Text style={[styles.capitalLabel, { color: colors.mutedForeground }]}>
+                Available
+              </Text>
+              <Text style={[styles.capitalValue, { color: colors.foreground }]}>
+                {maskDisplayValue(formatUsd(props.availableBalance), balancesHidden)}
+              </Text>
+            </View>
+            <View style={styles.capitalRow}>
+              <Text style={[styles.capitalLabel, { color: colors.mutedForeground }]}>
+                Equity
+              </Text>
+              <Text style={[styles.capitalValue, { color: colors.foreground }]}>
+                {maskDisplayValue(formatUsd(props.equity), balancesHidden)}
+              </Text>
+            </View>
+          </>
+        )}
       </View>
     </View>
   );
@@ -203,7 +270,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: 10,
+    gap: 8,
   },
   summaryValue: {
     flex: 1,
@@ -212,6 +279,22 @@ const styles = StyleSheet.create({
     fontFamily: "Inter_600SemiBold",
     letterSpacing: -0.3,
     lineHeight: 40,
+  },
+  transferButton: {
+    width: 28,
+    height: 28,
+    borderWidth: 1,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  transferIcon: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  transferArrowTop: {
+    marginBottom: -3,
   },
   currencySelectorWrap: {
     position: "relative",

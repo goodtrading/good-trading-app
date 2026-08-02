@@ -5,14 +5,13 @@ import { BottomSheetModal } from "@/components/BottomSheetModal";
 import { formatPaperPnlPercent } from "@/components/portfolio/paperDisplay";
 import { useColors } from "@/hooks/useColors";
 import { usePortfolioSource } from "@/lib/portfolio";
-import { signedValueColor } from "@/lib/portfolio/accounts/format";
+import { signedValueColor, formatMoney } from "@/lib/portfolio/accounts/format";
 import { usePortfolioAccountSession } from "@/lib/portfolio/accounts/usePortfolioAccountSession";
 import type { PortfolioAccount } from "@/lib/portfolio/accounts/types";
 
 type Props = {
   visible: boolean;
   account: PortfolioAccount | null;
-  btcPrice: number | null;
   onClose: () => void;
 };
 
@@ -25,16 +24,13 @@ function formatCreatedDate(timestamp: number): string {
 }
 
 function formatUsdt(value: number): string {
-  return `${value.toLocaleString("en-US", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  })} USDT`;
+  return `${formatMoney(value)} USDT`;
 }
 
-export function PaperAccountInfoSheet({ visible, account, btcPrice, onClose }: Props) {
+export function PaperAccountInfoSheet({ visible, account, onClose }: Props) {
   const colors = useColors();
   const { deletePaperAccount, paperAccounts } = usePortfolioSource();
-  const session = usePortfolioAccountSession(btcPrice, visible && account ? account.id : null);
+  const session = usePortfolioAccountSession(visible && account ? account.id : null);
   const [step, setStep] = useState<"info" | "confirm">("info");
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);

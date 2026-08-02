@@ -66,7 +66,7 @@ export function CarteraTabAnchoredSwitcher() {
     screenWidth - SWITCHER_WIDTH - 8,
   );
 
-  const switcherBackground = withOpacity(colors.card, 0.7);
+  const switcherBackground = colors.card;
   const visible = isOnCarteraTab && isSwitcherOpen;
 
   useEffect(() => {
@@ -105,7 +105,7 @@ export function CarteraTabAnchoredSwitcher() {
         style={[
           styles.switcher,
           {
-            borderColor: withOpacity(colors.border, 0.7),
+            borderColor: colors.border,
             backgroundColor: switcherBackground,
             shadowColor: colors.foreground,
           },

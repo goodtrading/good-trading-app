@@ -5,8 +5,8 @@ import { stabilizeKeyZones } from "@/lib/market-state/keyZoneSelectors";
 import { selectKeyZonesForScope } from "@/lib/market-state/keyZoneSelectors";
 
 const legacyFallback = [
-  { label: "CALL WALL", price: "$1", type: "resistance" as const, distance: "—" },
-  { label: "PUT WALL", price: "$2", type: "support" as const, distance: "—" },
+  { label: "Call Wall", price: "$1", type: "resistance" as const, distance: "—" },
+  { label: "Put Wall", price: "$2", type: "support" as const, distance: "—" },
 ];
 
 describe("useStableKeyZones contract", () => {
