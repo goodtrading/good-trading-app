@@ -5,8 +5,8 @@
   "main": "expo-router/entry",
   "scripts": {
     "dev": "cross-env EXPO_OFFLINE=1 EXPO_PUBLIC_DOMAIN=goodtrading.up.railway.app npx expo start",
-    "build": "npx expo export --platform web",
-    "start": "npx http-server dist -a 0.0.0.0 -p $PORT",
+    "build": "cross-env EXPO_PUBLIC_DOMAIN=goodtrading.up.railway.app EXPO_PUBLIC_MOBILE_STATE_V2_ENABLED=true npx expo export --platform web",
+    "start": "node scripts/serve-web.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run"
   },
