@@ -57,3 +57,5 @@ vitest*.txt
 # Sistema
 .DS_Store
 Thumbs.db
+# Stale nested app copies break Nixpacks package.json discovery
+artifacts/
