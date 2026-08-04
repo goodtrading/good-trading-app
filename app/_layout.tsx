@@ -38,28 +38,24 @@ const queryClient = new QueryClient({
 });
 
 function AuthGate({ children }: { children: React.ReactNode }) {
-  const { status, isAuthenticated } = useAuth();
+  const { status } = useAuth();
   const segments = useSegments();
   const router = useRouter();
-
-  const hasAccess =
-    isAuthenticated ||
-    process.env.EXPO_PUBLIC_BYPASS_AUTH === "true";
 
   useEffect(() => {
     if (status === "loading") return;
 
     const onLoginScreen = String(segments[0]) === "login";
 
-    if (!hasAccess && !onLoginScreen) {
+    if (status === "unauthenticated" && !onLoginScreen) {
       router.replace("/login" as Href);
       return;
     }
 
-    if (hasAccess && onLoginScreen) {
+    if (status === "authenticated" && onLoginScreen) {
       router.replace("/(tabs)" as Href);
     }
-  }, [hasAccess, router, segments, status]);
+  }, [router, segments, status]);
 
   if (status === "loading") {
     return (

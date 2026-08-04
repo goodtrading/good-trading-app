@@ -18,6 +18,10 @@ import type { AuthUser } from "@/lib/auth/types";
 
 const secureStore = new Map<string, string>();
 
+vi.mock("react-native", () => ({
+  Platform: { OS: "ios" },
+}));
+
 vi.mock("expo-secure-store", () => ({
   getItemAsync: vi.fn(async (key: string) => secureStore.get(key) ?? null),
   setItemAsync: vi.fn(async (key: string, value: string) => {
